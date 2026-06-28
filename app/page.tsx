@@ -9,6 +9,7 @@ import { OverviewView } from "@/components/views/overview";
 import { SessionsView } from "@/components/views/sessions";
 import { ProjectsView } from "@/components/views/projects";
 import { DailyView } from "@/components/views/daily";
+import { EfficiencyView } from "@/components/views/efficiency";
 import { PatternsView } from "@/components/views/patterns";
 
 const RANGES: { key: Range; label: string }[] = [
@@ -23,12 +24,13 @@ const RANGES: { key: Range; label: string }[] = [
 const tabCls = (on: boolean) =>
   on ? "!bg-primary !text-primary-foreground shadow-sm" : "";
 
-type View = "overview" | "sessions" | "projects" | "daily" | "patterns";
+type View = "overview" | "sessions" | "projects" | "daily" | "efficiency" | "patterns";
 const VIEWS: { key: View; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "sessions", label: "Sessions" },
   { key: "projects", label: "Projects" },
   { key: "daily", label: "Daily" },
+  { key: "efficiency", label: "Efficiency" },
   { key: "patterns", label: "Patterns" },
 ];
 
@@ -110,6 +112,7 @@ export default function Page() {
           {view === "sessions" && <SessionsView key={range} data={data} />}
           {view === "projects" && <ProjectsView key={range} data={data} />}
           {view === "daily" && <DailyView data={data} />}
+          {view === "efficiency" && <EfficiencyView data={data} />}
           {view === "patterns" && <PatternsView data={data} />}
 
           <footer className="mt-10 border-t pt-4 text-xs text-muted-foreground">

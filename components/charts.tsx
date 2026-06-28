@@ -201,6 +201,38 @@ export function ProjectBars({ data }: { data: Summary["byProject"] }) {
   );
 }
 
+// Output tokens produced per $ of API-equivalent cost, by project — higher = more
+// "bang per token". Sorted best-first so the most efficient projects sit on top.
+export function EfficiencyBars({ data }: { data: Summary["byProject"] }) {
+  const rows = data
+    .filter((p) => p.cost > 0)
+    .map((p) => ({ project: p.project, value: Math.round(p.output / p.cost) }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 12);
+  const config = { value: { label: "Output / $", color: "hsl(var(--chart-2))" } } satisfies ChartConfig;
+  return (
+    <ChartContainer config={config} style={{ height: Math.max(200, rows.length * 34) }} className="aspect-auto w-full">
+      <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
+        <XAxis type="number" tickFormatter={(v) => tokens(v)} tickLine={false} axisLine={false} className="text-[11px]" />
+        <YAxis
+          type="category"
+          dataKey="project"
+          width={150}
+          interval={0}
+          tickFormatter={(v: string) => (v.length > 20 ? v.slice(0, 19) + "…" : v)}
+          tickLine={false}
+          axisLine={false}
+          className="text-[12px]"
+        />
+        <ChartTooltip
+          content={<ChartTooltipContent formatter={(v) => `${tokens(Number(v))} tok / $`} hideLabel />}
+        />
+        <Bar dataKey="value" fill="var(--color-value)" radius={[0, 4, 4, 0]} isAnimationActive={false} />
+      </BarChart>
+    </ChartContainer>
+  );
+}
+
 export function HourBars({ data }: { data: Summary["byHour"] }) {
   const config = { cost: { label: "Cost", color: "hsl(var(--chart-1))" } } satisfies ChartConfig;
   return (
