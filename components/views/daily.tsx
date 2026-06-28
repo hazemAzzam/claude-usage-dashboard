@@ -7,11 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableRow, TableHeader } from "@/components/ui/table";
 import { Empty, MiniStat, SortHeader } from "@/components/stats";
 
-type Key = "day" | "cost" | "messages" | "input" | "output" | "cacheCreate" | "cacheRead";
+type Key = "day" | "cost" | "messages" | "input" | "output" | "cacheCreate" | "cacheRead" | "perDollar";
 
 function cacheShare(d: DayBucket): number {
   const inTot = d.input + d.cacheCreate + d.cacheRead;
   return inTot > 0 ? (d.cacheRead / inTot) * 100 : 0;
+}
+
+function tokensPerDollar(d: DayBucket): number {
+  return d.cost > 0 ? d.output / d.cost : 0;
 }
 
 export function DailyView({ data }: { data: Summary }) {
@@ -21,6 +25,7 @@ export function DailyView({ data }: { data: Summary }) {
   const rows = useMemo(() => {
     const sorted = [...data.byDay].sort((a, b) => {
       if (sortKey === "day") return a.day.localeCompare(b.day);
+      if (sortKey === "perDollar") return tokensPerDollar(a) - tokensPerDollar(b);
       return (a[sortKey] as number) - (b[sortKey] as number);
     });
     if (dir === "desc") sorted.reverse();
@@ -68,6 +73,7 @@ export function DailyView({ data }: { data: Summary }) {
                   <SortHeader label="Output" active={sortKey === "output"} dir={dir} onClick={() => toggle("output")} alignRight />
                   <SortHeader label="Cache wr" active={sortKey === "cacheCreate"} dir={dir} onClick={() => toggle("cacheCreate")} alignRight />
                   <SortHeader label="Cache rd" active={sortKey === "cacheRead"} dir={dir} onClick={() => toggle("cacheRead")} alignRight />
+                  <SortHeader label="Tokens / $" active={sortKey === "perDollar"} dir={dir} onClick={() => toggle("perDollar")} alignRight />
                   <SortHeader label="Cost" active={sortKey === "cost"} dir={dir} onClick={() => toggle("cost")} alignRight />
                 </TableRow>
               </TableHeader>
@@ -82,6 +88,7 @@ export function DailyView({ data }: { data: Summary }) {
                     <TableCell className="text-right tabular-nums text-muted-foreground">
                       {tokens(d.cacheRead)} <span className="text-[11px] opacity-60">{cacheShare(d).toFixed(0)}%</span>
                     </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">{num(Math.round(tokensPerDollar(d)))}</TableCell>
                     <TableCell className="text-right font-medium tabular-nums">{usdExact(d.cost)}</TableCell>
                   </TableRow>
                 ))}
