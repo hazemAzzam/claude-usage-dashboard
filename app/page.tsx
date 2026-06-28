@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import type { Summary, Range } from "@/lib/usage";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { DateRange } from "react-day-picker";
+import type { Summary } from "@/lib/usage";
 import { tokens } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DateRangePicker, rangeLabel } from "@/components/date-range-picker";
 import { OverviewView } from "@/components/views/overview";
 import { SessionsView } from "@/components/views/sessions";
 import { ProjectsView } from "@/components/views/projects";
@@ -12,12 +14,21 @@ import { DailyView } from "@/components/views/daily";
 import { EfficiencyView } from "@/components/views/efficiency";
 import { PatternsView } from "@/components/views/patterns";
 
-const RANGES: { key: Range; label: string }[] = [
-  { key: "7d", label: "7 days" },
-  { key: "30d", label: "30 days" },
-  { key: "90d", label: "90 days" },
-  { key: "all", label: "All time" },
-];
+// Format a Date as the local YYYY-MM-DD key the API expects.
+function toKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// Default window: the last 30 days, ending today.
+function defaultRange(): DateRange {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - 29);
+  return { from, to };
+}
 
 // The Base-UI tabs' built-in active style uses `data-active:` variants that don't
 // compile under Tailwind v3, so we drive the highlight from controlled state here.
@@ -35,17 +46,20 @@ const VIEWS: { key: View; label: string }[] = [
 ];
 
 export default function Page() {
-  const [range, setRange] = useState<Range>("30d");
+  const [range, setRange] = useState<DateRange | undefined>(defaultRange);
   const [view, setView] = useState<View>("overview");
   const [data, setData] = useState<Summary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async (r: Range, refresh = false) => {
+  const load = useCallback(async (r: DateRange | undefined, refresh = false) => {
+    if (!r?.from || !r?.to) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/usage?range=${r}${refresh ? "&refresh=1" : ""}`);
+      const params = new URLSearchParams({ start: toKey(r.from), end: toKey(r.to) });
+      if (refresh) params.set("refresh", "1");
+      const res = await fetch(`/api/usage?${params.toString()}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Request failed");
       setData(json);
@@ -60,7 +74,12 @@ export default function Page() {
     load(range);
   }, [range, load]);
 
-  const rangeLabel = RANGES.find((r) => r.key === range)?.label;
+  // Stable string key for resetting per-range view state when the window changes.
+  const rangeKey = useMemo(
+    () => (range?.from && range?.to ? `${toKey(range.from)}_${toKey(range.to)}` : "none"),
+    [range],
+  );
+  const label = rangeLabel(range);
 
   return (
     <main className="mx-auto max-w-6xl px-5 py-8">
@@ -73,15 +92,7 @@ export default function Page() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Tabs value={range} onValueChange={(v) => setRange(v as Range)}>
-            <TabsList>
-              {RANGES.map((r) => (
-                <TabsTrigger key={r.key} value={r.key} className={tabCls(range === r.key)}>
-                  {r.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+          <DateRangePicker value={range} onChange={setRange} />
           <Button variant="outline" size="sm" onClick={() => load(range, true)} disabled={loading} title="Re-scan transcripts">
             {loading ? "…" : "↻ Refresh"}
           </Button>
@@ -108,9 +119,9 @@ export default function Page() {
 
       {data && (
         <>
-          {view === "overview" && <OverviewView data={data} rangeLabel={rangeLabel} />}
-          {view === "sessions" && <SessionsView key={range} data={data} />}
-          {view === "projects" && <ProjectsView key={range} data={data} />}
+          {view === "overview" && <OverviewView data={data} rangeLabel={label} />}
+          {view === "sessions" && <SessionsView key={rangeKey} data={data} />}
+          {view === "projects" && <ProjectsView key={rangeKey} data={data} />}
           {view === "daily" && <DailyView data={data} />}
           {view === "efficiency" && <EfficiencyView data={data} />}
           {view === "patterns" && <PatternsView data={data} />}
