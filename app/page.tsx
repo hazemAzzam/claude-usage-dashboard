@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { DateRange } from "react-day-picker";
 import type { Summary } from "@/lib/usage";
 import { tokens } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DateRangePicker, rangeLabel } from "@/components/date-range-picker";
+import { DateRangeInputs, type DateRangeValue } from "@/components/date-range-inputs";
 import { OverviewView } from "@/components/views/overview";
 import { SessionsView } from "@/components/views/sessions";
 import { ProjectsView } from "@/components/views/projects";
@@ -14,7 +13,7 @@ import { DailyView } from "@/components/views/daily";
 import { EfficiencyView } from "@/components/views/efficiency";
 import { PatternsView } from "@/components/views/patterns";
 
-// Format a Date as the local YYYY-MM-DD key the API expects.
+// Format a Date as the local YYYY-MM-DD key the inputs/API use.
 function toKey(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -23,11 +22,25 @@ function toKey(d: Date): string {
 }
 
 // Default window: the last 30 days, ending today.
-function defaultRange(): DateRange {
+function defaultRange(): DateRangeValue {
   const to = new Date();
   const from = new Date();
   from.setDate(from.getDate() - 29);
-  return { from, to };
+  return { start: toKey(from), end: toKey(to) };
+}
+
+// "Jun 1, 2026 – Jun 28, 2026" for the Overview subtitle.
+function rangeLabel({ start, end }: DateRangeValue): string {
+  if (!start || !end) return "";
+  const fmt = (s: string) => {
+    const [y, m, d] = s.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+  return `${fmt(start)} – ${fmt(end)}`;
 }
 
 // The Base-UI tabs' built-in active style uses `data-active:` variants that don't
@@ -46,18 +59,18 @@ const VIEWS: { key: View; label: string }[] = [
 ];
 
 export default function Page() {
-  const [range, setRange] = useState<DateRange | undefined>(defaultRange);
+  const [range, setRange] = useState<DateRangeValue>(defaultRange);
   const [view, setView] = useState<View>("overview");
   const [data, setData] = useState<Summary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async (r: DateRange | undefined, refresh = false) => {
-    if (!r?.from || !r?.to) return;
+  const load = useCallback(async (r: DateRangeValue, refresh = false) => {
+    if (!r.start || !r.end) return;
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ start: toKey(r.from), end: toKey(r.to) });
+      const params = new URLSearchParams({ start: r.start, end: r.end });
       if (refresh) params.set("refresh", "1");
       const res = await fetch(`/api/usage?${params.toString()}`);
       const json = await res.json();
@@ -75,10 +88,7 @@ export default function Page() {
   }, [range, load]);
 
   // Stable string key for resetting per-range view state when the window changes.
-  const rangeKey = useMemo(
-    () => (range?.from && range?.to ? `${toKey(range.from)}_${toKey(range.to)}` : "none"),
-    [range],
-  );
+  const rangeKey = useMemo(() => `${range.start}_${range.end}`, [range]);
   const label = rangeLabel(range);
 
   return (
@@ -92,7 +102,7 @@ export default function Page() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <DateRangePicker value={range} onChange={setRange} />
+          <DateRangeInputs value={range} onChange={setRange} />
           <Button variant="outline" size="sm" onClick={() => load(range, true)} disabled={loading} title="Re-scan transcripts">
             {loading ? "…" : "↻ Refresh"}
           </Button>
