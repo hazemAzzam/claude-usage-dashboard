@@ -188,7 +188,8 @@ export type ProjectRow = {
 } & Bucket;
 
 export interface Summary {
-  range: Range;
+  from: number; // window start (epoch ms)
+  to: number; // window end (epoch ms)
   builtAt: number;
   parseMs: number;
   generatedAt: number;
@@ -204,13 +205,18 @@ export interface Summary {
   heatmap: number[][]; // [weekday 0..6][hour 0..23] -> cost
 }
 
+// An explicit date window (epoch ms). `summarize` also accepts a preset Range
+// (used by lib/context.ts); the dashboard passes an explicit window.
+export type DateWindow = { from: number; to: number };
+
 export function summarize(
   records: UsageRecord[],
-  range: Range,
+  sel: Range | DateWindow,
   meta: { builtAt: number; parseMs: number },
 ): Summary {
   const now = Date.now();
-  const from = cutoff(range, now);
+  const { from, to } =
+    typeof sel === "object" ? sel : { from: cutoff(sel, now), to: now };
 
   const totals = { ...empty(), sessions: 0 };
   const byDay = new Map<string, Bucket>();
@@ -230,7 +236,7 @@ export function summarize(
   >();
 
   for (const r of records) {
-    if (r.ts < from) continue;
+    if (r.ts < from || r.ts > to) continue;
     add(totals, r);
 
     let d = byDay.get(r.day);
@@ -324,7 +330,8 @@ export function summarize(
   });
 
   return {
-    range,
+    from,
+    to,
     builtAt: meta.builtAt,
     parseMs: meta.parseMs,
     generatedAt: now,
