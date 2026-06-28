@@ -28,14 +28,27 @@ export function DateRangePicker({
   className?: string
 }) {
   const [open, setOpen] = React.useState(false)
+  // In-progress selection, separate from the committed `value`. We reset it to
+  // `undefined` each time the popover opens so the first click always sets the
+  // start: react-day-picker's range logic otherwise treats a click against an
+  // already-complete range as moving an endpoint, instantly completing it.
+  const [draft, setDraft] = React.useState<DateRange | undefined>(undefined)
+
+  function handleOpenChange(next: boolean) {
+    if (next) setDraft(undefined)
+    setOpen(next)
+  }
 
   function handleSelect(range: DateRange | undefined) {
-    onChange(range)
-    if (range?.from && range?.to) setOpen(false)
+    setDraft(range)
+    if (range?.from && range?.to) {
+      onChange(range)
+      setOpen(false)
+    }
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger
         className={cn(
           buttonVariants({ variant: "outline", size: "sm" }),
@@ -50,8 +63,8 @@ export function DateRangePicker({
       <PopoverContent align="end" className="p-3">
         <Calendar
           mode="range"
-          defaultMonth={value?.from}
-          selected={value}
+          defaultMonth={value?.to ?? value?.from}
+          selected={draft}
           onSelect={handleSelect}
           numberOfMonths={2}
         />
