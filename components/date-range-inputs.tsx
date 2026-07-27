@@ -16,6 +16,14 @@ function toKey(d: Date): string {
 // Quick presets, each computing a fresh { start, end } window ending today.
 const PRESETS: { key: string; label: string; range: () => DateRangeValue }[] = [
   {
+    key: "today",
+    label: "Today",
+    range: () => {
+      const today = toKey(new Date())
+      return { start: today, end: today }
+    },
+  },
+  {
     key: "7d",
     label: "7d",
     range: () => {

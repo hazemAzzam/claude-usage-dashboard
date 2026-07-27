@@ -20,6 +20,16 @@ export function SessionsView({ data }: { data: Summary }) {
   const [model, setModel] = useState<string>("all");
   const [sortKey, setSortKey] = useState<Key>("cost");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
+  const [open, setOpen] = useState<Set<string>>(new Set());
+
+  function toggleRow(session: string) {
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(session)) next.delete(session);
+      else next.add(session);
+      return next;
+    });
+  }
 
   const models = useMemo(() => {
     const set = new Set<string>();
@@ -107,7 +117,7 @@ export function SessionsView({ data }: { data: Summary }) {
                 </TableHeader>
                 <TableBody>
                   {filtered.map((s) => (
-                    <Row key={s.session} s={s} />
+                    <Row key={s.session} s={s} open={open.has(s.session)} onToggle={() => toggleRow(s.session)} />
                   ))}
                 </TableBody>
               </Table>
@@ -119,23 +129,67 @@ export function SessionsView({ data }: { data: Summary }) {
   );
 }
 
-function Row({ s }: { s: SessionRow }) {
+function Row({ s, open, onToggle }: { s: SessionRow; open: boolean; onToggle: () => void }) {
+  const expandable = s.modelBreakdown.length > 1;
   return (
-    <TableRow>
-      <TableCell className="max-w-[200px] truncate font-medium">{s.project}</TableCell>
-      <TableCell className="whitespace-nowrap text-muted-foreground">{s.day}</TableCell>
-      <TableCell>
-        <Badge variant="secondary" className="font-normal">
-          {shortModel(s.model)}
-        </Badge>
-        {s.models.length > 1 && <span className="ml-1 text-[11px] text-muted-foreground">+{s.models.length - 1}</span>}
-      </TableCell>
-      <TableCell className="text-right tabular-nums text-muted-foreground">{num(s.messages)}</TableCell>
-      <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(s.input)}</TableCell>
-      <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(s.output)}</TableCell>
-      <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(s.cacheRead)}</TableCell>
-      <TableCell className="text-right font-medium tabular-nums">{usdExact(s.cost)}</TableCell>
-    </TableRow>
+    <>
+      <TableRow
+        className={expandable ? "cursor-pointer" : undefined}
+        onClick={expandable ? onToggle : undefined}
+      >
+        <TableCell className="max-w-[200px] truncate font-medium">
+          <span className="inline-flex items-center gap-1.5">
+            {expandable ? (
+              <button
+                type="button"
+                aria-expanded={open}
+                aria-label={open ? "Collapse models" : "Expand models"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggle();
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <span className={`inline-block text-xs transition-transform ${open ? "rotate-90" : ""}`}>▶</span>
+              </button>
+            ) : (
+              <span className="inline-block w-3" />
+            )}
+            <span className="truncate">{s.project}</span>
+          </span>
+        </TableCell>
+        <TableCell className="whitespace-nowrap text-muted-foreground">{s.day}</TableCell>
+        <TableCell>
+          <Badge variant="secondary" className="font-normal">
+            {shortModel(s.model)}
+          </Badge>
+          {s.models.length > 1 && <span className="ml-1 text-[11px] text-muted-foreground">+{s.models.length - 1}</span>}
+        </TableCell>
+        <TableCell className="text-right tabular-nums text-muted-foreground">{num(s.messages)}</TableCell>
+        <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(s.input)}</TableCell>
+        <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(s.output)}</TableCell>
+        <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(s.cacheRead)}</TableCell>
+        <TableCell className="text-right font-medium tabular-nums">{usdExact(s.cost)}</TableCell>
+      </TableRow>
+      {open &&
+        expandable &&
+        s.modelBreakdown.map((m) => (
+          <TableRow key={m.model} className="bg-muted/30 hover:bg-muted/30 text-xs">
+            <TableCell />
+            <TableCell />
+            <TableCell className="pl-3">
+              <Badge variant="outline" className="font-normal text-muted-foreground">
+                {shortModel(m.model)}
+              </Badge>
+            </TableCell>
+            <TableCell className="text-right tabular-nums text-muted-foreground">{num(m.messages)}</TableCell>
+            <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(m.input)}</TableCell>
+            <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(m.output)}</TableCell>
+            <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(m.cacheRead)}</TableCell>
+            <TableCell className="text-right tabular-nums text-muted-foreground">{usdExact(m.cost)}</TableCell>
+          </TableRow>
+        ))}
+    </>
   );
 }
 

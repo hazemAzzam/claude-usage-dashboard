@@ -8,6 +8,18 @@ export function usdExact(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
+// Small per-unit amounts (e.g. cost per message) where two decimals round away
+// the signal — shows up to 4 fraction digits so sub-cent values stay visible.
+export function usdFine(n: number): string {
+  if (!isFinite(n)) return "$0.00";
+  return n.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  });
+}
+
 export function tokens(n: number): string {
   if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
   if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
