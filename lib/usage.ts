@@ -155,7 +155,10 @@ function add(b: Bucket, r: UsageRecord) {
 }
 
 export type ModelBucket = { model: string } & Bucket;
-export type DayBucket = { day: string } & Bucket;
+// `models` is the per-model split of this day (cost desc); present on the
+// top-level `byDay` (drives the daily table's expandable rows), omitted on the
+// per-project `byDay` where it isn't needed.
+export type DayBucket = { day: string; models?: ModelBucket[] } & Bucket;
 
 // One row per day with a cost column per model (model name -> cost). Used for
 // the multi-line "cost over time, split by model" chart.
@@ -172,6 +175,7 @@ export interface SessionRow {
   lastTs: number;
   model: string; // primary model (highest cost)
   models: string[]; // all models used, by cost desc
+  modelBreakdown: ModelBucket[]; // per-model msgs/tokens/cost, cost desc
   cost: number;
   messages: number;
   input: number;
@@ -221,14 +225,14 @@ export function summarize(
   const totals = { ...empty(), sessions: 0 };
   const byDay = new Map<string, Bucket>();
   const byModel = new Map<string, Bucket>();
-  const dayModel = new Map<string, Map<string, number>>(); // day -> (model -> cost)
+  const dayModel = new Map<string, Map<string, Bucket>>(); // day -> (model -> bucket)
   const byHour = Array.from({ length: 24 }, () => empty());
   const byWeekday = Array.from({ length: 7 }, () => empty());
   const heatmap = Array.from({ length: 7 }, () => Array<number>(24).fill(0));
 
   const sessions = new Map<
     string,
-    { project: string; day: string; firstTs: number; lastTs: number; bucket: Bucket; models: Map<string, number> }
+    { project: string; day: string; firstTs: number; lastTs: number; bucket: Bucket; models: Map<string, Bucket> }
   >();
   const projects = new Map<
     string,
@@ -249,7 +253,9 @@ export function summarize(
 
     let dm = dayModel.get(r.day);
     if (!dm) dayModel.set(r.day, (dm = new Map()));
-    dm.set(r.model, (dm.get(r.model) ?? 0) + r.cost);
+    let dmb = dm.get(r.model);
+    if (!dmb) dm.set(r.model, (dmb = empty()));
+    add(dmb, r);
 
     const dt = new Date(r.ts);
     const hr = dt.getHours();
@@ -268,7 +274,9 @@ export function summarize(
     s.day = r.day;
     if (r.ts < s.firstTs) s.firstTs = r.ts;
     if (r.ts > s.lastTs) s.lastTs = r.ts;
-    s.models.set(r.model, (s.models.get(r.model) ?? 0) + r.cost);
+    let sm = s.models.get(r.model);
+    if (!sm) s.models.set(r.model, (sm = empty()));
+    add(sm, r);
 
     let p = projects.get(r.project);
     if (!p) projects.set(r.project, (p = { bucket: empty(), sessions: new Set(), models: new Map(), byDay: new Map() }));
@@ -286,7 +294,10 @@ export function summarize(
 
   const allSessions: SessionRow[] = [...sessions.entries()]
     .map(([session, s]) => {
-      const models = [...s.models.entries()].sort((a, b) => b[1] - a[1]).map(([mm]) => mm);
+      const modelBreakdown = [...s.models.entries()]
+        .map(([model, b]) => ({ model, ...b }))
+        .sort((a, b) => b.cost - a.cost);
+      const models = modelBreakdown.map((m) => m.model);
       return {
         session,
         project: s.project,
@@ -295,6 +306,7 @@ export function summarize(
         lastTs: s.lastTs,
         model: models[0] ?? "unknown",
         models,
+        modelBreakdown,
         cost: s.bucket.cost,
         messages: s.bucket.messages,
         input: s.bucket.input,
@@ -325,9 +337,18 @@ export function summarize(
   const byDayModel: DayModelRow[] = sortedDays.map((day) => {
     const dm = dayModel.get(day);
     const row: DayModelRow = { day };
-    for (const m of modelList) row[m] = dm?.get(m) ?? 0;
+    for (const m of modelList) row[m] = dm?.get(m)?.cost ?? 0;
     return row;
   });
+
+  // Per-day per-model breakdown (cost desc) for the daily table's expandable rows.
+  const dayModelBreakdown = new Map<string, ModelBucket[]>();
+  for (const [day, dm] of dayModel) {
+    dayModelBreakdown.set(
+      day,
+      [...dm.entries()].map(([model, b]) => ({ model, ...b })).sort((a, b) => b.cost - a.cost),
+    );
+  }
 
   return {
     from,
@@ -336,7 +357,9 @@ export function summarize(
     parseMs: meta.parseMs,
     generatedAt: now,
     totals,
-    byDay: [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([day, b]) => ({ day, ...b })),
+    byDay: [...byDay.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([day, b]) => ({ day, ...b, models: dayModelBreakdown.get(day) ?? [] })),
     byProject,
     byModel: [...byModel.entries()].map(([model, b]) => ({ model, ...b })).sort((a, b) => b.cost - a.cost),
     topSessions: allSessions

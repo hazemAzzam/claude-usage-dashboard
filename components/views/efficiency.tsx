@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ModelBucket, Summary } from "@/lib/usage";
-import { num, tokens, usdExact } from "@/lib/format";
+import { num, tokens, usdExact, usdFine } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableRow, TableHeader } from "@/components/ui/table";
 import { Empty, Kpi, MiniStat, shortModel, SortHeader } from "@/components/stats";
@@ -174,6 +174,7 @@ export function EfficiencyView({ data }: { data: Summary }) {
                   <TableCell className="font-medium">Model</TableCell>
                   <TableCell className="text-right font-medium">Msgs</TableCell>
                   <TableCell className="text-right font-medium">Cost</TableCell>
+                  <TableCell className="text-right font-medium">Cost / msg</TableCell>
                   <TableCell className="text-right font-medium">Output</TableCell>
                   <TableCell className="text-right font-medium">Output / $</TableCell>
                   <TableCell className="text-right font-medium">Output %</TableCell>
@@ -185,6 +186,9 @@ export function EfficiencyView({ data }: { data: Summary }) {
                     <TableCell className="whitespace-nowrap font-medium">{shortModel(m.model)}</TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">{num(m.messages)}</TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">{usdExact(m.cost)}</TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {usdFine(m.messages ? m.cost / m.messages : 0)}
+                    </TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(m.output)}</TableCell>
                     <TableCell className="text-right font-medium tabular-nums">
                       {num(Math.round(outputPerDollar(m.cost, m.output)))}

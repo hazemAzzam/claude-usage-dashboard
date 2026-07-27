@@ -1,26 +1,37 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { DayBucket, Summary } from "@/lib/usage";
+import type { DayBucket, ModelBucket, Summary } from "@/lib/usage";
 import { num, shortDay, tokens, usdExact } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableRow, TableHeader } from "@/components/ui/table";
-import { Empty, MiniStat, SortHeader } from "@/components/stats";
+import { Badge } from "@/components/ui/badge";
+import { Empty, MiniStat, shortModel, SortHeader } from "@/components/stats";
 
 type Key = "day" | "cost" | "messages" | "input" | "output" | "cacheCreate" | "cacheRead" | "perDollar";
 
-function cacheShare(d: DayBucket): number {
+function cacheShare(d: { input: number; cacheCreate: number; cacheRead: number }): number {
   const inTot = d.input + d.cacheCreate + d.cacheRead;
   return inTot > 0 ? (d.cacheRead / inTot) * 100 : 0;
 }
 
-function tokensPerDollar(d: DayBucket): number {
+function tokensPerDollar(d: { output: number; cost: number }): number {
   return d.cost > 0 ? d.output / d.cost : 0;
 }
 
 export function DailyView({ data }: { data: Summary }) {
   const [sortKey, setSortKey] = useState<Key>("day");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
+  const [open, setOpen] = useState<Set<string>>(new Set());
+
+  function toggleRow(day: string) {
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(day)) next.delete(day);
+      else next.add(day);
+      return next;
+    });
+  }
 
   const rows = useMemo(() => {
     const sorted = [...data.byDay].sort((a, b) => {
@@ -79,18 +90,7 @@ export function DailyView({ data }: { data: Summary }) {
               </TableHeader>
               <TableBody>
                 {rows.map((d) => (
-                  <TableRow key={d.day}>
-                    <TableCell className="whitespace-nowrap font-medium">{shortDay(d.day)}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">{num(d.messages)}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(d.input)}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(d.output)}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(d.cacheCreate)}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {tokens(d.cacheRead)} <span className="text-[11px] opacity-60">{cacheShare(d).toFixed(0)}%</span>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">{num(Math.round(tokensPerDollar(d)))}</TableCell>
-                    <TableCell className="text-right font-medium tabular-nums">{usdExact(d.cost)}</TableCell>
-                  </TableRow>
+                  <DayRow key={d.day} d={d} open={open.has(d.day)} onToggle={() => toggleRow(d.day)} />
                 ))}
               </TableBody>
             </Table>
@@ -98,5 +98,69 @@ export function DailyView({ data }: { data: Summary }) {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function DayRow({ d, open, onToggle }: { d: DayBucket; open: boolean; onToggle: () => void }) {
+  const models: ModelBucket[] = d.models ?? [];
+  const expandable = models.length > 1;
+  return (
+    <>
+      <TableRow
+        className={expandable ? "cursor-pointer" : undefined}
+        onClick={expandable ? onToggle : undefined}
+      >
+        <TableCell className="whitespace-nowrap font-medium">
+          <span className="inline-flex items-center gap-1.5">
+            {expandable ? (
+              <button
+                type="button"
+                aria-expanded={open}
+                aria-label={open ? "Collapse models" : "Expand models"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggle();
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <span className={`inline-block text-xs transition-transform ${open ? "rotate-90" : ""}`}>▶</span>
+              </button>
+            ) : (
+              <span className="inline-block w-3" />
+            )}
+            {shortDay(d.day)}
+          </span>
+        </TableCell>
+        <TableCell className="text-right tabular-nums text-muted-foreground">{num(d.messages)}</TableCell>
+        <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(d.input)}</TableCell>
+        <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(d.output)}</TableCell>
+        <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(d.cacheCreate)}</TableCell>
+        <TableCell className="text-right tabular-nums text-muted-foreground">
+          {tokens(d.cacheRead)} <span className="text-[11px] opacity-60">{cacheShare(d).toFixed(0)}%</span>
+        </TableCell>
+        <TableCell className="text-right tabular-nums text-muted-foreground">{num(Math.round(tokensPerDollar(d)))}</TableCell>
+        <TableCell className="text-right font-medium tabular-nums">{usdExact(d.cost)}</TableCell>
+      </TableRow>
+      {open &&
+        expandable &&
+        models.map((m) => (
+          <TableRow key={m.model} className="bg-muted/30 hover:bg-muted/30 text-xs">
+            <TableCell className="pl-8">
+              <Badge variant="outline" className="font-normal text-muted-foreground">
+                {shortModel(m.model)}
+              </Badge>
+            </TableCell>
+            <TableCell className="text-right tabular-nums text-muted-foreground">{num(m.messages)}</TableCell>
+            <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(m.input)}</TableCell>
+            <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(m.output)}</TableCell>
+            <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(m.cacheCreate)}</TableCell>
+            <TableCell className="text-right tabular-nums text-muted-foreground">
+              {tokens(m.cacheRead)} <span className="text-[11px] opacity-60">{cacheShare(m).toFixed(0)}%</span>
+            </TableCell>
+            <TableCell className="text-right tabular-nums text-muted-foreground">{num(Math.round(tokensPerDollar(m)))}</TableCell>
+            <TableCell className="text-right tabular-nums text-muted-foreground">{usdExact(m.cost)}</TableCell>
+          </TableRow>
+        ))}
+    </>
   );
 }
