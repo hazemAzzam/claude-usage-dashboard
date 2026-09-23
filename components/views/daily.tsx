@@ -1,59 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import type { DayBucket, ModelBucket, Summary } from "@/lib/usage";
-import { num, shortDay, tokens, usdExact } from "@/lib/format";
+import { cacheShare, num, shortDay, tokens, usdExact } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableRow, TableHeader } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Empty, MiniStat, shortModel, SortHeader } from "@/components/stats";
-
-type Key = "day" | "cost" | "messages" | "input" | "output" | "cacheCreate" | "cacheRead" | "perDollar";
-
-function cacheShare(d: { input: number; cacheCreate: number; cacheRead: number }): number {
-  const inTot = d.input + d.cacheCreate + d.cacheRead;
-  return inTot > 0 ? (d.cacheRead / inTot) * 100 : 0;
-}
-
-function tokensPerDollar(d: { output: number; cost: number }): number {
-  return d.cost > 0 ? d.output / d.cost : 0;
-}
+import { useDailyView, tokensPerDollar } from "@/hooks/use-daily-view";
 
 export function DailyView({ data }: { data: Summary }) {
-  const [sortKey, setSortKey] = useState<Key>("day");
-  const [dir, setDir] = useState<"asc" | "desc">("desc");
-  const [open, setOpen] = useState<Set<string>>(new Set());
-
-  function toggleRow(day: string) {
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(day)) next.delete(day);
-      else next.add(day);
-      return next;
-    });
-  }
-
-  const rows = useMemo(() => {
-    const sorted = [...data.byDay].sort((a, b) => {
-      if (sortKey === "day") return a.day.localeCompare(b.day);
-      if (sortKey === "perDollar") return tokensPerDollar(a) - tokensPerDollar(b);
-      return (a[sortKey] as number) - (b[sortKey] as number);
-    });
-    if (dir === "desc") sorted.reverse();
-    return sorted;
-  }, [data.byDay, sortKey, dir]);
-
-  function toggle(key: Key) {
-    if (sortKey === key) setDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(key);
-      setDir("desc"); // numeric high-first, and dates most-recent-first
-    }
-  }
-
-  const days = data.byDay.length;
-  const totalCost = data.byDay.reduce((a, d) => a + d.cost, 0);
-  const busiest = [...data.byDay].sort((a, b) => b.cost - a.cost)[0];
+  const { rows, sortKey, dir, toggleSort, isRowOpen, toggleRow, days, avgCostPerDay, busiest, avgMessages } =
+    useDailyView(data);
 
   if (!days) return <Empty />;
 
@@ -61,12 +18,9 @@ export function DailyView({ data }: { data: Summary }) {
     <div className="space-y-4">
       <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <MiniStat label="Active days" value={num(days)} />
-        <MiniStat label="Avg cost / day" value={usdExact(days ? totalCost / days : 0)} />
+        <MiniStat label="Avg cost / day" value={usdExact(avgCostPerDay)} />
         <MiniStat label="Busiest day" value={busiest ? usdExact(busiest.cost) : "—"} hint={busiest && shortDay(busiest.day)} />
-        <MiniStat
-          label="Avg msgs / day"
-          value={num(Math.round(days ? data.byDay.reduce((a, d) => a + d.messages, 0) / days : 0))}
-        />
+        <MiniStat label="Avg msgs / day" value={num(avgMessages)} />
       </section>
 
       <Card>
@@ -78,19 +32,19 @@ export function DailyView({ data }: { data: Summary }) {
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
-                  <SortHeader label="Date" active={sortKey === "day"} dir={dir} onClick={() => toggle("day")} />
-                  <SortHeader label="Msgs" active={sortKey === "messages"} dir={dir} onClick={() => toggle("messages")} alignRight />
-                  <SortHeader label="Input" active={sortKey === "input"} dir={dir} onClick={() => toggle("input")} alignRight />
-                  <SortHeader label="Output" active={sortKey === "output"} dir={dir} onClick={() => toggle("output")} alignRight />
-                  <SortHeader label="Cache wr" active={sortKey === "cacheCreate"} dir={dir} onClick={() => toggle("cacheCreate")} alignRight />
-                  <SortHeader label="Cache rd" active={sortKey === "cacheRead"} dir={dir} onClick={() => toggle("cacheRead")} alignRight />
-                  <SortHeader label="Tokens / $" active={sortKey === "perDollar"} dir={dir} onClick={() => toggle("perDollar")} alignRight />
-                  <SortHeader label="Cost" active={sortKey === "cost"} dir={dir} onClick={() => toggle("cost")} alignRight />
+                  <SortHeader label="Date" active={sortKey === "day"} dir={dir} onClick={() => toggleSort("day")} />
+                  <SortHeader label="Msgs" active={sortKey === "messages"} dir={dir} onClick={() => toggleSort("messages")} alignRight />
+                  <SortHeader label="Input" active={sortKey === "input"} dir={dir} onClick={() => toggleSort("input")} alignRight />
+                  <SortHeader label="Output" active={sortKey === "output"} dir={dir} onClick={() => toggleSort("output")} alignRight />
+                  <SortHeader label="Cache wr" active={sortKey === "cacheCreate"} dir={dir} onClick={() => toggleSort("cacheCreate")} alignRight />
+                  <SortHeader label="Cache rd" active={sortKey === "cacheRead"} dir={dir} onClick={() => toggleSort("cacheRead")} alignRight />
+                  <SortHeader label="Tokens / $" active={sortKey === "perDollar"} dir={dir} onClick={() => toggleSort("perDollar")} alignRight />
+                  <SortHeader label="Cost" active={sortKey === "cost"} dir={dir} onClick={() => toggleSort("cost")} alignRight />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((d) => (
-                  <DayRow key={d.day} d={d} open={open.has(d.day)} onToggle={() => toggleRow(d.day)} />
+                  <DayRow key={d.day} d={d} open={isRowOpen(d.day)} onToggle={() => toggleRow(d.day)} />
                 ))}
               </TableBody>
             </Table>

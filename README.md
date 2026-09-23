@@ -34,6 +34,7 @@ no database, and no account or API key is required.
 - [Ask about your usage (optional chat panel)](#ask-about-your-usage-optional-chat-panel)
 - [Configuration](#configuration)
 - [How it works](#how-it-works)
+- [Client layering](#client-layering)
 - [Project structure](#project-structure)
 - [Tech stack](#tech-stack)
 - [Troubleshooting](#troubleshooting)
@@ -254,6 +255,10 @@ cp .env.example .env.local
   server-only aggregation in `lib/usage.ts` and client components import from it.
 - **`app/api/usage/route.ts`** — aggregates the parsed data for the requested range
   (and optional `effort` filter) and returns it as JSON.
+- **`hooks/`** — all client-side state, fetching, and derived view models. `app/page.tsx`
+  and `components/views/*` are presentational: they take hook results/props in and render
+  JSX out, with no `fetch`, `useEffect`, or inline sorting/aggregation of their own. See
+  [Client layering](#client-layering) below.
 - The UI is built with **shadcn/ui** components and **Recharts** charts.
 
 > [!TIP]
@@ -263,24 +268,43 @@ cp .env.example .env.local
 
 ---
 
+## Client layering
+
+The client is split the same way React 19 encourages: **hooks own state, fetching,
+and derived data; components are presentational.** `app/page.tsx` composes
+`useDashboardFilters` + `useUsageSummary` and renders the active view — no `fetch`,
+`useEffect`, or inline sorting/aggregation lives in `app/page.tsx` or `components/`
+anymore. See `CLAUDE.md` for the full hook list and the server-only import rule.
+
+---
+
 ## Project structure
 
 ```
 claude-usage-dashboard/
 ├── app/
-│   ├── page.tsx              # App shell: range + view switcher, data fetching
+│   ├── page.tsx              # App shell: pure composition — wires hooks to views
 │   ├── layout.tsx            # Root layout (dark theme, Geist fonts, metadata)
 │   ├── globals.css           # Tailwind base + shadcn theme variables
 │   ├── fonts/                # Bundled Geist Sans / Geist Mono
 │   └── api/
 │       ├── usage/route.ts    # GET /api/usage — scan + aggregate transcripts
 │       └── chat/route.ts     # POST /api/chat — proxy to LM Studio (SSE stream)
+├── hooks/                    # Client state/fetching/derivation — see Client layering
+│   ├── use-usage-summary.ts    # Fetches /api/usage, abort-cancels stale requests, refresh()
+│   ├── use-dashboard-filters.ts # Date range + presets + effort selection, rangeKey
+│   ├── use-sortable.ts         # Generic sort key/dir/toggle
+│   ├── use-expandable.ts       # Generic expand/collapse row-id set
+│   ├── use-sessions-view.ts    # Sessions search/filter/sort view model
+│   ├── use-daily-view.ts       # Daily table sort + expand view model
+│   ├── use-efficiency-view.ts  # Efficiency metrics + sort + expand view model
+│   └── use-projects-view.ts    # Projects master/detail selection view model
 ├── components/
-│   ├── views/                # overview, sessions, projects, daily, efficiency, patterns
+│   ├── views/                # overview, sessions, projects, daily, efficiency, patterns — presentational
 │   ├── ui/                   # shadcn primitives
 │   ├── charts.tsx            # Recharts wrappers
 │   ├── chat-panel.tsx        # Streaming chat UI
-│   ├── date-range-inputs.tsx # Date range picker + quick presets
+│   ├── date-range-inputs.tsx # Date range picker + quick presets (presets passed in as data)
 │   ├── effort-filter.tsx     # Effort-level chip filter (header)
 │   ├── heatmap.tsx           # Weekday × hour cost heatmap
 │   └── stats.tsx             # Shared atoms (KPIs, tables, sort headers)

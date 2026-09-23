@@ -37,3 +37,11 @@ export function shortDay(day: string): string {
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   return `${months[m - 1]} ${d}`;
 }
+
+// Share of all input volume served cheaply from cache (cache reads ≈ 10% of
+// input price). Shared by the Daily and Efficiency views' derivation hooks —
+// kept here rather than duplicated in each hook file.
+export function cacheShare(t: { input: number; cacheCreate: number; cacheRead: number }): number {
+  const denom = t.input + t.cacheCreate + t.cacheRead;
+  return denom > 0 ? (t.cacheRead / denom) * 100 : 0;
+}

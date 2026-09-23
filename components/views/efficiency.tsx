@@ -1,106 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import type { EffortBucket, ModelBucket, Summary } from "@/lib/usage";
 import { EFFORT_LABEL } from "@/lib/effort";
-import { num, tokens, usdExact, usdFine } from "@/lib/format";
+import { cacheShare, num, tokens, usdExact, usdFine } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableRow, TableHeader } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Empty, Kpi, MiniStat, shortModel, SortHeader } from "@/components/stats";
 import { EfficiencyBars } from "@/components/charts";
-
-// --- efficiency helpers (token "bang per buck") ---
-type Tokens = { input: number; output: number; cacheCreate: number; cacheRead: number };
-
-// Share of fresh token flow that is the model *generating* vs you feeding context.
-function outputShare(t: Tokens): number {
-  const denom = t.input + t.output;
-  return denom > 0 ? (t.output / denom) * 100 : 0;
-}
-
-// Share of all input volume served cheaply from cache (cache reads ≈ 10% of input price).
-function cacheShare(t: Tokens): number {
-  const denom = t.input + t.cacheCreate + t.cacheRead;
-  return denom > 0 ? (t.cacheRead / denom) * 100 : 0;
-}
-
-// Output tokens produced per $ of API-equivalent cost — the bottom-line "value per spend".
-function outputPerDollar(cost: number, output: number): number {
-  return cost > 0 ? output / cost : 0;
-}
-
-type Key =
-  | "project"
-  | "sessions"
-  | "cost"
-  | "output"
-  | "perDollar"
-  | "outShare"
-  | "cacheShare";
+import { useEfficiencyView, outputShare, outputPerDollar } from "@/hooks/use-efficiency-view";
 
 export function EfficiencyView({ data }: { data: Summary }) {
-  const { totals } = data;
-
-  const [sortKey, setSortKey] = useState<Key>("perDollar");
-  const [dir, setDir] = useState<"asc" | "desc">("desc");
-  const [openModels, setOpenModels] = useState<Set<string>>(new Set());
-
-  function toggleModel(model: string) {
-    setOpenModels((prev) => {
-      const next = new Set(prev);
-      if (next.has(model)) next.delete(model);
-      else next.add(model);
-      return next;
-    });
-  }
-
-  // Overall baseline used to color each project as above/below your own average.
-  const baseline = outputPerDollar(totals.cost, totals.output);
-
-  const projectRows = useMemo(() => {
-    const withMetrics = data.byProject
-      .filter((p) => p.cost > 0)
-      .map((p) => ({
-        row: p,
-        perDollar: outputPerDollar(p.cost, p.output),
-        outShare: outputShare(p),
-        cacheShare: cacheShare(p),
-      }));
-
-    withMetrics.sort((a, b) => {
-      switch (sortKey) {
-        case "project":
-          return a.row.project.localeCompare(b.row.project);
-        case "sessions":
-          return a.row.sessions - b.row.sessions;
-        case "cost":
-          return a.row.cost - b.row.cost;
-        case "output":
-          return a.row.output - b.row.output;
-        case "perDollar":
-          return a.perDollar - b.perDollar;
-        case "outShare":
-          return a.outShare - b.outShare;
-        case "cacheShare":
-          return a.cacheShare - b.cacheShare;
-      }
-    });
-    if (dir === "desc") withMetrics.reverse();
-    return withMetrics;
-  }, [data.byProject, sortKey, dir]);
-
-  function toggle(key: Key) {
-    if (sortKey === key) setDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(key);
-      setDir(key === "project" ? "asc" : "desc");
-    }
-  }
+  const { totals, baseline, models, isModelOpen, toggleModel, projectRows, sortKey, dir, toggleSort } =
+    useEfficiencyView(data);
 
   if (!totals.sessions) return <Empty />;
-
-  const models: ModelBucket[] = [...data.byModel].filter((m) => m.cost > 0).sort((a, b) => b.cost - a.cost);
 
   return (
     <div className="space-y-4">
@@ -198,7 +112,7 @@ export function EfficiencyView({ data }: { data: Summary }) {
                   <ModelRow
                     key={m.model}
                     m={m}
-                    open={openModels.has(m.model)}
+                    open={isModelOpen(m.model)}
                     onToggle={() => toggleModel(m.model)}
                   />
                 ))}
@@ -222,13 +136,13 @@ export function EfficiencyView({ data }: { data: Summary }) {
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
-                  <SortHeader label="Project" active={sortKey === "project"} dir={dir} onClick={() => toggle("project")} />
-                  <SortHeader label="Sessions" active={sortKey === "sessions"} dir={dir} onClick={() => toggle("sessions")} alignRight />
-                  <SortHeader label="Cost" active={sortKey === "cost"} dir={dir} onClick={() => toggle("cost")} alignRight />
-                  <SortHeader label="Output" active={sortKey === "output"} dir={dir} onClick={() => toggle("output")} alignRight />
-                  <SortHeader label="Output / $" active={sortKey === "perDollar"} dir={dir} onClick={() => toggle("perDollar")} alignRight />
-                  <SortHeader label="Output %" active={sortKey === "outShare"} dir={dir} onClick={() => toggle("outShare")} alignRight />
-                  <SortHeader label="Cache rd %" active={sortKey === "cacheShare"} dir={dir} onClick={() => toggle("cacheShare")} alignRight />
+                  <SortHeader label="Project" active={sortKey === "project"} dir={dir} onClick={() => toggleSort("project")} />
+                  <SortHeader label="Sessions" active={sortKey === "sessions"} dir={dir} onClick={() => toggleSort("sessions")} alignRight />
+                  <SortHeader label="Cost" active={sortKey === "cost"} dir={dir} onClick={() => toggleSort("cost")} alignRight />
+                  <SortHeader label="Output" active={sortKey === "output"} dir={dir} onClick={() => toggleSort("output")} alignRight />
+                  <SortHeader label="Output / $" active={sortKey === "perDollar"} dir={dir} onClick={() => toggleSort("perDollar")} alignRight />
+                  <SortHeader label="Output %" active={sortKey === "outShare"} dir={dir} onClick={() => toggleSort("outShare")} alignRight />
+                  <SortHeader label="Cache rd %" active={sortKey === "cacheShare"} dir={dir} onClick={() => toggleSort("cacheShare")} alignRight />
                 </TableRow>
               </TableHeader>
               <TableBody>

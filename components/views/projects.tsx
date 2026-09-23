@@ -1,18 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { ProjectRow, Summary } from "@/lib/usage";
+import type { ProjectRow, SessionRow, Summary } from "@/lib/usage";
 import { num, tokens, usd, usdExact } from "@/lib/format";
 import { CostOverTime, ModelSplit, TokenBars, PALETTE } from "@/components/charts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, Empty, MiniStat, shortModel } from "@/components/stats";
+import { useProjectsView } from "@/hooks/use-projects-view";
 
 export function ProjectsView({ data }: { data: Summary }) {
-  const projects = data.byProject;
-  const [selected, setSelected] = useState<string>(projects[0]?.project ?? "");
-  const active = projects.find((p) => p.project === selected) ?? projects[0];
-  const max = projects[0]?.cost || 1;
+  const { projects, setSelected, active, maxCost, recentSessions } = useProjectsView(data);
 
   if (!projects.length) return <Empty />;
 
@@ -42,7 +39,7 @@ export function ProjectsView({ data }: { data: Summary }) {
                     <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-muted">
                       <div
                         className="h-full rounded-full"
-                        style={{ width: `${(p.cost / max) * 100}%`, background: PALETTE[i % PALETTE.length] }}
+                        style={{ width: `${(p.cost / maxCost) * 100}%`, background: PALETTE[i % PALETTE.length] }}
                       />
                     </div>
                   </button>
@@ -53,23 +50,15 @@ export function ProjectsView({ data }: { data: Summary }) {
         </CardContent>
       </Card>
 
-      {active && <ProjectDetail project={active} summary={data} />}
+      {active && <ProjectDetail project={active} recentSessions={recentSessions} />}
     </div>
   );
 }
 
-function ProjectDetail({ project, summary }: { project: ProjectRow; summary: Summary }) {
+function ProjectDetail({ project, recentSessions }: { project: ProjectRow; recentSessions: SessionRow[] }) {
   const totalIn = project.input + project.cacheCreate + project.cacheRead;
   const cacheShare = totalIn > 0 ? (project.cacheRead / totalIn) * 100 : 0;
   const avgSession = project.sessions ? project.cost / project.sessions : 0;
-  const projSessions = useMemo(
-    () =>
-      summary.allSessions
-        .filter((s) => s.project === project.project)
-        .sort((a, b) => b.lastTs - a.lastTs)
-        .slice(0, 15),
-    [summary.allSessions, project.project],
-  );
 
   return (
     <div className="space-y-4">
@@ -142,7 +131,7 @@ function ProjectDetail({ project, summary }: { project: ProjectRow; summary: Sum
           <CardContent>
             <DataTable
               head={["Date", "Model", "Msgs", "Tokens", "Cost"]}
-              rows={projSessions.map((s) => [
+              rows={recentSessions.map((s) => [
                 s.day,
                 <Badge key={s.session} variant="secondary" className="font-normal">
                   {shortModel(s.model)}

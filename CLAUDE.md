@@ -26,8 +26,73 @@ updated via a persistent cache (in-memory hot copy TTL 5s; see "Parse cache").
   params, call into `lib/`, return JSON or a stream. No aggregation logic lives
   in the route handlers themselves.
 - **`components/views/*`** are presentation — they receive an already-aggregated
-  `Summary` as a prop and render it. They don't fetch or filter data themselves;
-  `app/page.tsx` owns fetch/filter state and passes the result down.
+  `Summary` as a prop (plus any hook results a view needs) and render it. They
+  don't fetch, hold filter/sort/expand state, or derive data themselves; see
+  "Client layering" below for where that state lives.
+
+## Client layering
+
+Mirrors the server-side split: hooks own state/fetching/derivation, components
+are presentational (props/hook result in, JSX out — no `fetch`, no `useEffect`
+for derived data, no inline sorting/aggregation in JSX). `app/page.tsx` is pure
+composition: it calls `useDashboardFilters` + `useUsageSummary` and renders the
+active view.
+
+- **`hooks/use-usage-summary.ts`** — owns fetching `/api/usage` for
+  `{start, end, effort}`, in-flight request cancellation, loading/error state,
+  and `refresh()` (manual re-scan, sends `refresh=1`). Uses React 19
+  **`useEffectEvent`** so the effect depends only on the `{range, effort,
+  refreshToken}` query key, not on the fetch function's identity — the fetch
+  body reads fresh `setState`/reactive values without needing to be in the
+  effect's own dependency array. Because a `useEffectEvent`-created function
+  can only be called from an Effect (or another Effect Event) in the same
+  component, `refresh()` can't call the fetcher directly — it bumps a
+  `refreshToken` counter that the effect is keyed on, and a ref records
+  whether the pending run is a manual refresh (sends `refresh=1`) vs. a
+  filter-driven reload. `data` is never cleared while a request is in
+  flight — the previous result stays on screen through a filter change or a
+  refresh, and `app/page.tsx` dims the view on `loading` rather than
+  swapping back to the skeleton.
+- **`hooks/use-dashboard-filters.ts`** — date range + quick presets + effort
+  selection state, plus the derived `rangeKey` (`${start}_${end}_${effort}`)
+  used to reset per-range view state (search/sort/expand) via `key={rangeKey}`
+  on the Sessions/Projects views. Each preset carries a `getRange()` function
+  evaluated at click time (in `selectPreset`), not during render or at hook
+  mount — presets like "Today"/"This month" depend on the current date, so
+  precomputing them once would go stale after midnight, and calling
+  `new Date()` during render is impure regardless. Which preset is active is
+  tracked as its own `selectedPreset` key (set by `selectPreset`, cleared by
+  direct date-input edits) rather than recomputed by re-calling `getRange()`
+  at render to compare — that would reintroduce the same staleness and
+  render-impurity problem for the highlight. Also exports a plain
+  `effortOptions(data, effort)` helper (not a hook) that keeps the currently
+  selected effort visible as a chip even if the latest response's
+  `availableEfforts` no longer includes it; it's a separate function rather
+  than folded into the hook to avoid a circular dependency (`useUsageSummary`
+  needs `range`/`effort` from this hook, so this hook can't also depend on
+  `useUsageSummary`'s `data`).
+- **`hooks/use-sortable.ts`** / **`hooks/use-expandable.ts`** — generic sort
+  key/dir/toggle and open-row-id-set toggle, replacing logic that used to be
+  duplicated across the Sessions/Daily/Efficiency views.
+- **`hooks/use-sessions-view.ts`** — search/filter/sort view model for the
+  Sessions table. Search text runs through **`useDeferredValue`** so typing
+  stays responsive while a large `allSessions` list re-filters.
+- **`hooks/use-daily-view.ts`** — sort + expand view model for the Daily
+  table, plus the `cacheShare`/`tokensPerDollar` calculation helpers.
+- **`hooks/use-efficiency-view.ts`** — per-project/per-model efficiency
+  metrics (`outputShare`, `cacheShare`, `outputPerDollar`) plus sort + expand
+  view model.
+- **`hooks/use-projects-view.ts`** — selected-project state and the derived
+  "latest 15 sessions for that project" list for the Projects master/detail
+  layout.
+- Pure calculation helpers that don't need React state live as non-exported
+  (or `export`ed for reuse in tests/other hooks) functions inside the
+  relevant hook file; they only move to `lib/` if genuinely shared across
+  hooks and lib code, never into a new `lib/` subdirectory.
+- **Dependency rule**: components import hooks + `lib` types/helpers + `ui`;
+  hooks import `lib` (types, `effort`, `format`, `pricing` are fine) and
+  React. Hooks and components **never** import runtime values from
+  `lib/usage.ts` or `lib/usage-cache.ts` (server-only) — `import type` only.
 
 ## Parse cache (`lib/usage-cache.ts`)
 

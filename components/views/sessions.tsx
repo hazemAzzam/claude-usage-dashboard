@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import type { SessionRow, Summary } from "@/lib/usage";
 import { num, tokens, usdExact } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,69 +8,32 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Empty, MiniStat, shortModel, SortHeader } from "@/components/stats";
-
-type Key = "project" | "day" | "model" | "cost" | "messages" | "input" | "output" | "cacheRead";
-
-const NUMERIC: Set<Key> = new Set(["cost", "messages", "input", "output", "cacheRead"]);
+import { useSessionsView } from "@/hooks/use-sessions-view";
 
 export function SessionsView({ data }: { data: Summary }) {
-  const rows = data.allSessions;
-  const [q, setQ] = useState("");
-  const [model, setModel] = useState<string>("all");
-  const [sortKey, setSortKey] = useState<Key>("cost");
-  const [dir, setDir] = useState<"asc" | "desc">("desc");
-  const [open, setOpen] = useState<Set<string>>(new Set());
-
-  function toggleRow(session: string) {
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(session)) next.delete(session);
-      else next.add(session);
-      return next;
-    });
-  }
-
-  const models = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of rows) for (const m of r.models) set.add(m);
-    return [...set].sort();
-  }, [rows]);
-
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    let out = rows;
-    if (needle) out = out.filter((r) => r.project.toLowerCase().includes(needle));
-    if (model !== "all") out = out.filter((r) => r.models.includes(model));
-    const sorted = [...out].sort((a, b) => {
-      if (sortKey === "project") return a.project.localeCompare(b.project);
-      if (sortKey === "day") return a.day.localeCompare(b.day);
-      if (sortKey === "model") return a.model.localeCompare(b.model);
-      return (a[sortKey] as number) - (b[sortKey] as number);
-    });
-    if (dir === "desc") sorted.reverse();
-    return sorted;
-  }, [rows, q, model, sortKey, dir]);
-
-  function toggle(key: Key) {
-    if (sortKey === key) {
-      setDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setDir(NUMERIC.has(key) ? "desc" : "asc");
-    }
-  }
-
-  const shown = filtered.reduce((a, r) => a + r.cost, 0);
+  const {
+    rows,
+    models,
+    query,
+    setQuery,
+    model,
+    setModel,
+    filtered,
+    sortKey,
+    dir,
+    toggleSort,
+    isRowOpen,
+    toggleRow,
+    shownCost,
+    avgCost,
+  } = useSessionsView(data);
 
   return (
     <div className="space-y-4">
       <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <MiniStat label="Sessions" value={num(rows.length)} hint="in selected range" />
-        <MiniStat label="Shown" value={num(filtered.length)} hint={`${usdExact(shown)} of cost`} />
-        <MiniStat
-          label="Avg / session"
-          value={usdExact(rows.length ? rows.reduce((a, r) => a + r.cost, 0) / rows.length : 0)}
-        />
+        <MiniStat label="Shown" value={num(filtered.length)} hint={`${usdExact(shownCost)} of cost`} />
+        <MiniStat label="Avg / session" value={usdExact(avgCost)} />
         <MiniStat
           label="Most expensive"
           value={rows[0] ? usdExact(rows[0].cost) : "—"}
@@ -84,8 +46,8 @@ export function SessionsView({ data }: { data: Summary }) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle className="text-sm font-medium">All sessions</CardTitle>
             <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
               placeholder="Filter by project…"
               className="h-8 w-full max-w-[240px] sm:w-[240px]"
             />
@@ -105,19 +67,19 @@ export function SessionsView({ data }: { data: Summary }) {
               <Table>
                 <TableHeader className="sticky top-0 z-10 bg-card">
                   <TableRow>
-                    <SortHeader label="Project" active={sortKey === "project"} dir={dir} onClick={() => toggle("project")} />
-                    <SortHeader label="Date" active={sortKey === "day"} dir={dir} onClick={() => toggle("day")} />
-                    <SortHeader label="Model" active={sortKey === "model"} dir={dir} onClick={() => toggle("model")} />
-                    <SortHeader label="Msgs" active={sortKey === "messages"} dir={dir} onClick={() => toggle("messages")} alignRight />
-                    <SortHeader label="Input" active={sortKey === "input"} dir={dir} onClick={() => toggle("input")} alignRight />
-                    <SortHeader label="Output" active={sortKey === "output"} dir={dir} onClick={() => toggle("output")} alignRight />
-                    <SortHeader label="Cache rd" active={sortKey === "cacheRead"} dir={dir} onClick={() => toggle("cacheRead")} alignRight />
-                    <SortHeader label="Cost" active={sortKey === "cost"} dir={dir} onClick={() => toggle("cost")} alignRight />
+                    <SortHeader label="Project" active={sortKey === "project"} dir={dir} onClick={() => toggleSort("project")} />
+                    <SortHeader label="Date" active={sortKey === "day"} dir={dir} onClick={() => toggleSort("day")} />
+                    <SortHeader label="Model" active={sortKey === "model"} dir={dir} onClick={() => toggleSort("model")} />
+                    <SortHeader label="Msgs" active={sortKey === "messages"} dir={dir} onClick={() => toggleSort("messages")} alignRight />
+                    <SortHeader label="Input" active={sortKey === "input"} dir={dir} onClick={() => toggleSort("input")} alignRight />
+                    <SortHeader label="Output" active={sortKey === "output"} dir={dir} onClick={() => toggleSort("output")} alignRight />
+                    <SortHeader label="Cache rd" active={sortKey === "cacheRead"} dir={dir} onClick={() => toggleSort("cacheRead")} alignRight />
+                    <SortHeader label="Cost" active={sortKey === "cost"} dir={dir} onClick={() => toggleSort("cost")} alignRight />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map((s) => (
-                    <Row key={s.session} s={s} open={open.has(s.session)} onToggle={() => toggleRow(s.session)} />
+                    <Row key={s.session} s={s} open={isRowOpen(s.session)} onToggle={() => toggleRow(s.session)} />
                   ))}
                 </TableBody>
               </Table>
