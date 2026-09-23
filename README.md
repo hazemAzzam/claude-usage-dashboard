@@ -9,12 +9,12 @@ Everything runs on your own machine. No data ever leaves your computer, there is
 no database, and no account or API key is required.
 
 <p align="left">
-  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-14-black?logo=next.js" />
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16.3-black?logo=next.js" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" />
-  <img alt="React" src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white" />
+  <img alt="React" src="https://img.shields.io/badge/React-19.3-61DAFB?logo=react&logoColor=white" />
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind-3-38BDF8?logo=tailwindcss&logoColor=white" />
   <img alt="shadcn/ui" src="https://img.shields.io/badge/shadcn%2Fui-components-000" />
-  <img alt="Node" src="https://img.shields.io/badge/Node-%3E%3D18-5FA04E?logo=node.js&logoColor=white" />
+  <img alt="Node" src="https://img.shields.io/badge/Node-%3E%3D20.9-5FA04E?logo=node.js&logoColor=white" />
 </p>
 
 > [!NOTE]
@@ -30,9 +30,11 @@ no database, and no account or API key is required.
 - [Why use this](#why-use-this)
 - [Quick start](#quick-start)
 - [What you get — the five views](#what-you-get--the-five-views)
+- [Effort levels](#effort-levels)
 - [Ask about your usage (optional chat panel)](#ask-about-your-usage-optional-chat-panel)
 - [Configuration](#configuration)
 - [How it works](#how-it-works)
+- [Client layering](#client-layering)
 - [Project structure](#project-structure)
 - [Tech stack](#tech-stack)
 - [Troubleshooting](#troubleshooting)
@@ -56,7 +58,7 @@ tokens. This dashboard answers questions like:
 
 ## Quick start
 
-**Prerequisites:** [Node.js](https://nodejs.org) 18 or newer. That's it — you've
+**Prerequisites:** [Node.js](https://nodejs.org) 20.9 or newer. That's it — you've
 almost certainly already generated transcript data just by using Claude Code.
 
 ```bash
@@ -84,7 +86,7 @@ npm run start
 | `npm run dev`   | Start the dev server at `localhost:3000`       |
 | `npm run build` | Create an optimized production build           |
 | `npm run start` | Serve the production build                     |
-| `npm run lint`  | Run ESLint                                      |
+| `npm run lint`  | Run ESLint (flat config)                        |
 
 ---
 
@@ -123,6 +125,57 @@ hour-of-day bar chart — surfacing your peak hour, peak weekday, and active hou
 
 ---
 
+## Effort levels
+
+Claude Code assistant messages carry a reasoning **effort** level — a top-level
+`effort` field on each log line, with an optional `perTurnEffort` field that
+overrides it for that one turn. The override only wins when it's itself a
+recognised level (`low`/`medium`/`high`/`xhigh`/`max`) — a missing or garbage
+`perTurnEffort` value falls back to `effort` instead of masking it. The
+dashboard reads this via `lib/effort.ts` and lets you filter and break down
+usage by it.
+
+| Log value | UI label  |
+| --------- | --------- |
+| `low`     | Low       |
+| `medium`  | Medium    |
+| `high`    | High      |
+| `xhigh`   | Extra     |
+| `max`     | Max       |
+| *(missing/unrecognised)* | Unknown |
+
+Claude Code only started writing the `effort` field after 2.1.28, so lines from
+2.1.28 and earlier have none. Those lines fall into the **Unknown** bucket
+rather than being dropped, so totals still add up. Most of them come from
+subagent transcripts (`<project>/<session>/subagents/*.jsonl`), so on an
+older history Unknown can be several percent of messages. It shrinks as those
+logs age out of the date range you're viewing.
+
+**Why `thinking_tokens` is ignored.** It's tempting to infer effort from
+`message.usage.output_tokens_details.thinking_tokens`, but that field is
+unreliable — it reads `0` on nearly all `xhigh`/`max` messages in practice, so
+it would systematically under-report high-effort usage. The dashboard never
+uses it; effort always comes from the `effort`/`perTurnEffort` log fields.
+
+**Same price, more output.** Per-token pricing (`lib/pricing.ts`) does not vary
+by effort — a `medium`-effort message and a `max`-effort message on the same
+model are billed at the same $/token rate. Cost per message rises with effort
+only because higher effort makes the model *generate more output tokens* per
+turn. Real-world example (Opus 4.8, average output tokens per assistant
+message): medium ≈ 1385, high ≈ 1575, xhigh ≈ 2064, max ≈ 3100.
+
+**Using it:** the **effort filter** in the header (next to the date range) is
+a single-select chip row — "All efforts" plus one chip per level seen in the
+current date window (`availableEfforts`); picking one narrows every view's
+data server-side, the same way the date range does. The **Efficiency** view's
+"Efficiency by model" table adds an **Output / msg** column, and any model
+with more than one effort level in range gets an expand chevron that reveals
+a per-effort breakdown (msgs, output/msg, cost, cost/msg) — mirroring how the
+Daily and Sessions tables expand into a per-model breakdown. The **Overview**
+also shows a compact "Cost by effort" card.
+
+---
+
 ## Ask about your usage (optional chat panel)
 
 The Overview includes an optional chat panel wired to a **local
@@ -158,6 +211,8 @@ cp .env.example .env.local
 | Variable              | Default                        | Purpose                                                       |
 | --------------------- | ------------------------------ | ------------------------------------------------------------- |
 | `CLAUDE_PROJECTS_DIR` | `~/.claude/projects`           | Where your Claude Code transcripts live                       |
+| `USAGE_CACHE_DIR`     | `./.cache` (project-relative)  | Where the persistent parse-cache index file is written        |
+| `USAGE_CACHE`         | *(unset, cache on)*             | Set to `off` to disable the **on-disk cache file** only — parsing stays in-memory-incremental for the process lifetime, it just isn't persisted across restarts. Use `/api/usage?rebuild=1` to force a full reparse |
 | `LM_STUDIO_URL`       | `http://localhost:1234/v1`     | LM Studio OpenAI-compatible base URL (chat panel only)        |
 | `LM_STUDIO_MODEL`     | `google/gemma-4-e4b`           | Model id to chat with — must match a model loaded in LM Studio |
 
@@ -166,25 +221,60 @@ cp .env.example .env.local
 ## How it works
 
 ```
-~/.claude/projects/**/*.jsonl   ──▶   lib/usage.ts   ──▶   /api/usage   ──▶   React + Recharts UI
-   (Claude Code transcripts)          (parse + price)      (aggregate)        (charts & tables)
+~/.claude/projects/**/*.jsonl   ──▶   lib/usage-cache.ts   ──▶   lib/usage.ts   ──▶   /api/usage   ──▶   React + Recharts UI
+   (Claude Code transcripts)          (parse cache)              (aggregate)         (JSON)             (charts & tables)
 ```
 
-- **`lib/usage.ts`** — recursively scans your transcripts line by line, keeps only
-  `assistant` messages that carry a `usage` block, and **deduplicates** by
-  `message.id:requestId` (the same message can appear across multiple transcript
-  files due to Claude Code checkpointing). Parsed records are cached in memory for
-  30 seconds; **Refresh** forces a fresh scan.
+- **`lib/usage-cache.ts`** — the persistent parse cache. Parsing every transcript
+  line on every request doesn't scale as logs grow, so each `.jsonl` file is parsed
+  **once**. The parsed lines plus a per-file byte **offset** ("how far we've read")
+  are persisted to `.cache/usage-index.json`. On each load it `stat`s every file:
+  unchanged files are reused as-is, grown files are read only from their saved
+  offset onward (an incremental append), shrunk/replaced files are fully reparsed,
+  and deleted files drop out of the index. A trailing partial line (no newline yet)
+  is parsed for that one request only and never persisted, so a concurrent writer
+  mid-line doesn't corrupt the cache. The same dedup/sort/cost pipeline then runs
+  over the cached lines every time, so cached output is identical to a full reparse.
+  Cost and day are **not** stored in the cache — they're computed at merge time, so
+  a pricing change in `lib/pricing.ts` never requires a cache rebuild.
+  - **Incremental refresh** — the dashboard's **Refresh** button bypasses the
+    5-second in-memory TTL and re-runs the same incremental load (cheap: only new
+    bytes are parsed).
+  - **Full rebuild** — add `?rebuild=1` to `/api/usage` to discard the cache
+    entirely and do a full reparse of every file (useful after changing
+    `CLAUDE_PROJECTS_DIR`, or if you suspect the cache is out of sync).
+  - **Resetting the cache** — delete the `.cache/` directory to force a full
+    reparse on the next request; it's regenerated automatically.
+- **`lib/usage.ts`** — aggregation only now (`summarize()`); it gets already-parsed
+  records from `lib/usage-cache.ts` instead of scanning transcripts itself.
 - **`lib/pricing.ts`** — per-model rates in $/1M tokens. Cache writes are priced at
   1.25× input (5-minute TTL) or 2× (1-hour TTL); cache reads at 0.1× input. Model
   matching is longest-prefix, so new model variants degrade gracefully.
+- **`lib/effort.ts`** — pure, client-safe module defining the `Effort` type, its
+  display order, and UI labels (see [Effort levels](#effort-levels)). Both the
+  server-only aggregation in `lib/usage.ts` and client components import from it.
 - **`app/api/usage/route.ts`** — aggregates the parsed data for the requested range
-  and returns it as JSON.
+  (and optional `effort` filter) and returns it as JSON.
+- **`hooks/`** — all client-side state, fetching, and derived view models. `app/page.tsx`
+  and `components/views/*` are presentational: they take hook results/props in and render
+  JSX out, with no `fetch`, `useEffect`, or inline sorting/aggregation of their own. See
+  [Client layering](#client-layering) below.
 - The UI is built with **shadcn/ui** components and **Recharts** charts.
 
 > [!TIP]
 > When Anthropic's pricing changes, update the rate table in `lib/pricing.ts`.
-> Unknown model strings are priced at `$0` until you add them.
+> Unknown model strings are priced at `$0` until you add them — no cache rebuild
+> needed, since cost is computed at merge time, not cached.
+
+---
+
+## Client layering
+
+The client is split the same way React 19 encourages: **hooks own state, fetching,
+and derived data; components are presentational.** `app/page.tsx` composes
+`useDashboardFilters` + `useUsageSummary` and renders the active view — no `fetch`,
+`useEffect`, or inline sorting/aggregation lives in `app/page.tsx` or `components/`
+anymore. See `CLAUDE.md` for the full hook list and the server-only import rule.
 
 ---
 
@@ -193,27 +283,42 @@ cp .env.example .env.local
 ```
 claude-usage-dashboard/
 ├── app/
-│   ├── page.tsx              # App shell: range + view switcher, data fetching
+│   ├── page.tsx              # App shell: pure composition — wires hooks to views
 │   ├── layout.tsx            # Root layout (dark theme, Geist fonts, metadata)
 │   ├── globals.css           # Tailwind base + shadcn theme variables
 │   ├── fonts/                # Bundled Geist Sans / Geist Mono
 │   └── api/
 │       ├── usage/route.ts    # GET /api/usage — scan + aggregate transcripts
 │       └── chat/route.ts     # POST /api/chat — proxy to LM Studio (SSE stream)
+├── hooks/                    # Client state/fetching/derivation — see Client layering
+│   ├── use-usage-summary.ts    # Fetches /api/usage, abort-cancels stale requests, refresh()
+│   ├── use-dashboard-filters.ts # Date range + presets + effort selection, rangeKey
+│   ├── use-sortable.ts         # Generic sort key/dir/toggle
+│   ├── use-expandable.ts       # Generic expand/collapse row-id set
+│   ├── use-sessions-view.ts    # Sessions search/filter/sort view model
+│   ├── use-daily-view.ts       # Daily table sort + expand view model
+│   ├── use-efficiency-view.ts  # Efficiency metrics + sort + expand view model
+│   └── use-projects-view.ts    # Projects master/detail selection view model
 ├── components/
-│   ├── views/                # overview, sessions, projects, daily, patterns
+│   ├── views/                # overview, sessions, projects, daily, efficiency, patterns — presentational
 │   ├── ui/                   # shadcn primitives
 │   ├── charts.tsx            # Recharts wrappers
 │   ├── chat-panel.tsx        # Streaming chat UI
+│   ├── date-range-inputs.tsx # Date range picker + quick presets (presets passed in as data)
+│   ├── effort-filter.tsx     # Effort-level chip filter (header)
 │   ├── heatmap.tsx           # Weekday × hour cost heatmap
 │   └── stats.tsx             # Shared atoms (KPIs, tables, sort headers)
 ├── lib/
-│   ├── usage.ts              # Transcript scanning, dedup, aggregation, cache
+│   ├── usage.ts              # Aggregation (summarize()) over already-parsed records
+│   ├── usage-cache.ts        # Persistent parse cache: incremental scan/parse/dedup (server-only)
+│   ├── usage-types.ts        # Shared UsageRecord type (avoids a usage.ts <-> usage-cache.ts cycle)
 │   ├── pricing.ts            # Per-model $/1M rates + cost calculation
+│   ├── effort.ts             # Effort type/order/labels — pure, client-safe
 │   ├── context.ts            # Builds usage summary for the chat panel
 │   ├── llm.ts                # LM Studio config
 │   ├── format.ts             # Number / date formatters
 │   └── utils.ts              # cn() class merger
+├── .cache/                   # Persisted parse-cache index (gitignored, machine-local)
 ├── .env.example              # Documented optional env vars
 └── package.json
 ```
@@ -222,8 +327,8 @@ claude-usage-dashboard/
 
 ## Tech stack
 
-- **[Next.js 14](https://nextjs.org)** (App Router) + **TypeScript**
-- **[React 18](https://react.dev)**
+- **[Next.js 16.3](https://nextjs.org)** (App Router, Turbopack) + **TypeScript**
+- **[React 19.3](https://react.dev)**
 - **[shadcn/ui](https://ui.shadcn.com)** components
 - **[Recharts](https://recharts.org)** for charts
 - **[Tailwind CSS](https://tailwindcss.com)** for styling
@@ -242,7 +347,16 @@ at `~/.claude/projects`. If they live elsewhere, set `CLAUDE_PROJECTS_DIR` in
 `.env.local` and click **Refresh**.
 
 **My numbers look stale after a new session.**
-Parsed data is cached for 30 seconds. Click **Refresh** to force a re-scan.
+Parsed data is cached in memory for 5 seconds (and persisted to
+`.cache/usage-index.json` between server restarts). Click **Refresh** to force an
+incremental re-scan, or add `?rebuild=1` to `/api/usage` (or delete `.cache/`) to
+force a full reparse.
+
+**The numbers look wrong / out of sync after editing or moving transcript files by hand.**
+The cache detects size/mtime/inode changes automatically, but if you suspect it's
+out of sync (e.g. after bulk-editing files with a tool that preserves mtime),
+delete the `.cache/` directory or hit `/api/usage?rebuild=1` to force a clean
+full reparse.
 
 **A model shows `$0` cost.**
 Its model id isn't in the pricing table yet. Add it to `lib/pricing.ts`.

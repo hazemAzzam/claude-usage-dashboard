@@ -31,6 +31,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# persistent parse-cache index (lib/usage-cache.ts) — machine-local, rebuilt on demand
+/.cache/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

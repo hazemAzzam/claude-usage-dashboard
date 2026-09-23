@@ -1,47 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Summary } from "@/lib/usage";
+import { useMemo, useState } from "react";
 import { tokens } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DateRangeInputs, type DateRangeValue } from "@/components/date-range-inputs";
+import { DateRangeInputs } from "@/components/date-range-inputs";
+import { EffortFilter } from "@/components/effort-filter";
 import { OverviewView } from "@/components/views/overview";
 import { SessionsView } from "@/components/views/sessions";
 import { ProjectsView } from "@/components/views/projects";
 import { DailyView } from "@/components/views/daily";
 import { EfficiencyView } from "@/components/views/efficiency";
 import { PatternsView } from "@/components/views/patterns";
-
-// Format a Date as the local YYYY-MM-DD key the inputs/API use.
-function toKey(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-// Default window: the last 30 days, ending today.
-function defaultRange(): DateRangeValue {
-  const to = new Date();
-  const from = new Date();
-  from.setDate(from.getDate() - 29);
-  return { start: toKey(from), end: toKey(to) };
-}
-
-// "Jun 1, 2026 – Jun 28, 2026" for the Overview subtitle.
-function rangeLabel({ start, end }: DateRangeValue): string {
-  if (!start || !end) return "";
-  const fmt = (s: string) => {
-    const [y, m, d] = s.split("-").map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-  return `${fmt(start)} – ${fmt(end)}`;
-}
+import { effortOptions, useDashboardFilters } from "@/hooks/use-dashboard-filters";
+import { useUsageSummary } from "@/hooks/use-usage-summary";
 
 // The Base-UI tabs' built-in active style uses `data-active:` variants that don't
 // compile under Tailwind v3, so we drive the highlight from controlled state here.
@@ -59,37 +31,11 @@ const VIEWS: { key: View; label: string }[] = [
 ];
 
 export default function Page() {
-  const [range, setRange] = useState<DateRangeValue>(defaultRange);
   const [view, setView] = useState<View>("overview");
-  const [data, setData] = useState<Summary | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async (r: DateRangeValue, refresh = false) => {
-    if (!r.start || !r.end) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({ start: r.start, end: r.end });
-      if (refresh) params.set("refresh", "1");
-      const res = await fetch(`/api/usage?${params.toString()}`);
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Request failed");
-      setData(json);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load(range);
-  }, [range, load]);
-
-  // Stable string key for resetting per-range view state when the window changes.
-  const rangeKey = useMemo(() => `${range.start}_${range.end}`, [range]);
-  const label = rangeLabel(range);
+  const { range, setRange, effort, setEffort, presets, selectedPreset, selectPreset, rangeKey, rangeLabel } =
+    useDashboardFilters();
+  const { data, error, loading, refresh } = useUsageSummary(range, effort);
+  const effortOpts = useMemo(() => effortOptions(data, effort), [data, effort]);
 
   return (
     <main className="mx-auto max-w-6xl px-5 py-8">
@@ -101,9 +47,16 @@ export default function Page() {
             <code className="rounded bg-muted px-1.5 py-0.5 text-[12px]">~/.claude/projects</code> transcripts.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <DateRangeInputs value={range} onChange={setRange} />
-          <Button variant="outline" size="sm" onClick={() => load(range, true)} disabled={loading} title="Re-scan transcripts">
+        <div className="flex flex-wrap items-center gap-2">
+          <DateRangeInputs
+            value={range}
+            onChange={setRange}
+            presets={presets}
+            selectedPreset={selectedPreset}
+            onSelectPreset={selectPreset}
+          />
+          <EffortFilter value={effort} options={effortOpts} onChange={setEffort} />
+          <Button variant="outline" size="sm" onClick={refresh} disabled={loading} title="Re-scan transcripts">
             {loading ? "…" : "↻ Refresh"}
           </Button>
         </div>
@@ -128,8 +81,8 @@ export default function Page() {
       {!data && !error && <Skeleton />}
 
       {data && (
-        <>
-          {view === "overview" && <OverviewView data={data} rangeLabel={label} />}
+        <div className={loading ? "opacity-60 transition-opacity" : "transition-opacity"}>
+          {view === "overview" && <OverviewView data={data} rangeLabel={rangeLabel} />}
           {view === "sessions" && <SessionsView key={rangeKey} data={data} />}
           {view === "projects" && <ProjectsView key={rangeKey} data={data} />}
           {view === "daily" && <DailyView data={data} />}
@@ -140,7 +93,7 @@ export default function Page() {
             Parsed {tokens(data.totals.messages)} messages in {data.parseMs} ms · data cached, click Refresh to re-scan ·
             costs are list-price equivalents, not your subscription billing.
           </footer>
-        </>
+        </div>
       )}
     </main>
   );

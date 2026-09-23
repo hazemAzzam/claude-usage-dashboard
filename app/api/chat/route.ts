@@ -11,7 +11,10 @@ usage data provided below. Be concise and concrete: cite real numbers from the d
 when the user asks how to cut costs, give specific, actionable tips grounded in their data
 (e.g. which projects/models dominate spend, how cache reads lower cost). If the data does
 not contain the answer, say so plainly instead of guessing. Costs shown are list-price
-equivalents of token usage, not the user's actual subscription bill.`;
+equivalents of token usage, not the user's actual subscription bill. Effort (low/medium/
+high/xhigh/max) is a reasoning-depth setting, not a model or pricing tier — per-token price
+is the same at every effort level, and higher effort simply produces more output tokens
+per message, which is why cost per message rises with effort.`;
 
 export async function POST(req: NextRequest) {
   let body: { messages?: ChatMessage[] };
