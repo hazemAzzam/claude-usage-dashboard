@@ -40,5 +40,20 @@ breakdowns rather than post-processing `records` again elsewhere.
 
 ## Verification
 
-`npx tsc --noEmit && npm run lint && npm run build` must pass. There is no test
-suite. Manual/browser verification is not required for routine changes.
+`npx tsc --noEmit && npm run lint && npm run build` must pass. `npm run lint`
+now runs `eslint .` against the flat config in `eslint.config.mjs` (ESLint 9;
+`eslint-config-next` for Next 16.3). There is no test suite. Manual/browser
+verification is not required for routine changes.
+
+Stack: Next.js 16.3.x + React 19.3.x, Node >=20.9 (see `engines` in
+`package.json`).
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

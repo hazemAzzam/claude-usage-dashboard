@@ -9,12 +9,12 @@ Everything runs on your own machine. No data ever leaves your computer, there is
 no database, and no account or API key is required.
 
 <p align="left">
-  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-14-black?logo=next.js" />
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16.3-black?logo=next.js" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" />
-  <img alt="React" src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white" />
+  <img alt="React" src="https://img.shields.io/badge/React-19.3-61DAFB?logo=react&logoColor=white" />
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind-3-38BDF8?logo=tailwindcss&logoColor=white" />
   <img alt="shadcn/ui" src="https://img.shields.io/badge/shadcn%2Fui-components-000" />
-  <img alt="Node" src="https://img.shields.io/badge/Node-%3E%3D18-5FA04E?logo=node.js&logoColor=white" />
+  <img alt="Node" src="https://img.shields.io/badge/Node-%3E%3D20.9-5FA04E?logo=node.js&logoColor=white" />
 </p>
 
 > [!NOTE]
@@ -57,7 +57,7 @@ tokens. This dashboard answers questions like:
 
 ## Quick start
 
-**Prerequisites:** [Node.js](https://nodejs.org) 18 or newer. That's it — you've
+**Prerequisites:** [Node.js](https://nodejs.org) 20.9 or newer. That's it — you've
 almost certainly already generated transcript data just by using Claude Code.
 
 ```bash
@@ -85,7 +85,7 @@ npm run start
 | `npm run dev`   | Start the dev server at `localhost:3000`       |
 | `npm run build` | Create an optimized production build           |
 | `npm run start` | Serve the production build                     |
-| `npm run lint`  | Run ESLint                                      |
+| `npm run lint`  | Run ESLint (flat config)                        |
 
 ---
 
@@ -280,8 +280,8 @@ claude-usage-dashboard/
 
 ## Tech stack
 
-- **[Next.js 14](https://nextjs.org)** (App Router) + **TypeScript**
-- **[React 18](https://react.dev)**
+- **[Next.js 16.3](https://nextjs.org)** (App Router, Turbopack) + **TypeScript**
+- **[React 19.3](https://react.dev)**
 - **[shadcn/ui](https://ui.shadcn.com)** components
 - **[Recharts](https://recharts.org)** for charts
 - **[Tailwind CSS](https://tailwindcss.com)** for styling
