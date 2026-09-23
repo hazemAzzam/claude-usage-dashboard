@@ -1,12 +1,14 @@
-import { createReadStream } from "node:fs";
-import { readdir, stat } from "node:fs/promises";
-import { homedir } from "node:os";
-import path from "node:path";
-import readline from "node:readline";
-import { costOf, type Usage } from "./pricing";
-import { compareEffort, type Effort, isEffort, parseEffort } from "./effort";
+import "server-only";
+import { compareEffort, type Effort } from "./effort";
+import { getCachedRecords, type SweepStats } from "./usage-cache";
 
-// One assistant message, reduced to just what the dashboard needs.
+export { projectsDir } from "./usage-cache";
+
+// One assistant message, reduced to just what the dashboard needs. Lives
+// here (not in lib/usage-cache.ts) since this is the aggregation module's
+// own output shape; lib/usage-cache.ts imports it back via `import type`,
+// which is fully erased at compile time and so never creates a runtime
+// circular dependency between the two modules.
 export interface UsageRecord {
   ts: number; // epoch ms
   day: string; // YYYY-MM-DD (local)
@@ -21,124 +23,18 @@ export interface UsageRecord {
   effort: Effort;
 }
 
-export function projectsDir(): string {
-  return process.env.CLAUDE_PROJECTS_DIR || path.join(homedir(), ".claude", "projects");
-}
-
-function dayKey(ts: number): string {
-  const d = new Date(ts);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-async function listJsonl(root: string): Promise<string[]> {
-  const out: string[] = [];
-  async function walk(dir: string) {
-    let entries;
-    try {
-      entries = await readdir(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of entries) {
-      const full = path.join(dir, e.name);
-      if (e.isDirectory()) await walk(full);
-      else if (e.isFile() && e.name.endsWith(".jsonl")) out.push(full);
-    }
-  }
-  await walk(root);
-  return out;
-}
-
-interface RawLine {
-  type?: string;
-  timestamp?: string;
-  cwd?: string;
-  sessionId?: string;
-  requestId?: string;
-  message?: { id?: string; model?: string; usage?: Usage };
-  effort?: string;
-  perTurnEffort?: string | null;
-}
-
-async function parseFile(file: string, seen: Set<string>, out: UsageRecord[]) {
-  const folder = path.basename(path.dirname(file));
-  const rl = readline.createInterface({
-    input: createReadStream(file, { encoding: "utf8" }),
-    crlfDelay: Infinity,
-  });
-  for await (const line of rl) {
-    if (!line || line[0] !== "{") continue;
-    let rec: RawLine;
-    try {
-      rec = JSON.parse(line) as RawLine;
-    } catch {
-      continue;
-    }
-    if (rec.type !== "assistant") continue;
-    const msg = rec.message;
-    if (!msg) continue;
-    const usage = msg.usage;
-    if (!usage) continue;
-
-    // Dedup: the same assistant message can appear in multiple transcript files.
-    const key = `${msg.id ?? ""}:${rec.requestId ?? ""}`;
-    if (key !== ":" && seen.has(key)) continue;
-    if (key !== ":") seen.add(key);
-
-    const ts = Date.parse(rec.timestamp ?? "");
-    if (Number.isNaN(ts)) continue;
-
-    const cwd: string = rec.cwd || "";
-    const project = cwd ? path.basename(cwd) : folder.replace(/^-/, "").split("-").pop() || folder;
-
-    out.push({
-      ts,
-      day: dayKey(ts),
-      project,
-      model: msg.model || "unknown",
-      session: rec.sessionId || "unknown",
-      cost: costOf(msg.model, usage),
-      input: usage.input_tokens ?? 0,
-      output: usage.output_tokens ?? 0,
-      cacheCreate: usage.cache_creation_input_tokens ?? 0,
-      cacheRead: usage.cache_read_input_tokens ?? 0,
-      // perTurnEffort overrides effort only when it's itself a recognised level —
-      // an unrecognised/garbage override must not mask a valid `effort` value.
-      effort: isEffort(rec.perTurnEffort ?? null) ? (rec.perTurnEffort as Effort) : parseEffort(rec.effort),
-    });
-  }
-}
-
-// ---- module cache (the parse is the expensive part) ----
-let cache: { records: UsageRecord[]; builtAt: number; ms: number } | null = null;
-let inflight: Promise<UsageRecord[]> | null = null;
-const TTL_MS = 30_000;
-
-async function buildRecords(): Promise<UsageRecord[]> {
-  const t0 = Date.now();
-  const files = await listJsonl(projectsDir());
-  const seen = new Set<string>();
-  const out: UsageRecord[] = [];
-  // Newest files first so dedup keeps the most recent copy of a message.
-  const withTimes = await Promise.all(
-    files.map(async (f) => ({ f, m: (await stat(f).catch(() => null))?.mtimeMs ?? 0 })),
-  );
-  withTimes.sort((a, b) => b.m - a.m);
-  for (const { f } of withTimes) await parseFile(f, seen, out);
-  out.sort((a, b) => a.ts - b.ts);
-  cache = { records: out, builtAt: Date.now(), ms: Date.now() - t0 };
-  return out;
-}
-
-export async function getRecords(force = false): Promise<{ records: UsageRecord[]; builtAt: number; ms: number }> {
-  if (!force && cache && Date.now() - cache.builtAt < TTL_MS) return cache;
-  if (force) cache = null;
-  if (!inflight) inflight = buildRecords().finally(() => (inflight = null));
-  await inflight;
-  return cache!;
+// Records now come from the persistent parse cache (lib/usage-cache.ts)
+// instead of a full reparse every call. `force` triggers an incremental
+// cache load bypassing its short in-memory TTL (the dashboard's Refresh
+// button); `rebuild` discards the persisted cache index and does a full
+// reparse of every file (the API's `?rebuild=1`). See lib/usage-cache.ts for
+// the load/merge/persist orchestration and CLAUDE.md for the invariants it
+// preserves.
+export async function getRecords(
+  force = false,
+  rebuild = false,
+): Promise<{ records: UsageRecord[]; builtAt: number; ms: number; stats: SweepStats }> {
+  return getCachedRecords({ force, rebuild });
 }
 
 // ---- aggregation ----

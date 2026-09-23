@@ -210,6 +210,8 @@ cp .env.example .env.local
 | Variable              | Default                        | Purpose                                                       |
 | --------------------- | ------------------------------ | ------------------------------------------------------------- |
 | `CLAUDE_PROJECTS_DIR` | `~/.claude/projects`           | Where your Claude Code transcripts live                       |
+| `USAGE_CACHE_DIR`     | `./.cache` (project-relative)  | Where the persistent parse-cache index file is written        |
+| `USAGE_CACHE`         | *(unset, cache on)*             | Set to `off` to disable the **on-disk cache file** only — parsing stays in-memory-incremental for the process lifetime, it just isn't persisted across restarts. Use `/api/usage?rebuild=1` to force a full reparse |
 | `LM_STUDIO_URL`       | `http://localhost:1234/v1`     | LM Studio OpenAI-compatible base URL (chat panel only)        |
 | `LM_STUDIO_MODEL`     | `google/gemma-4-e4b`           | Model id to chat with — must match a model loaded in LM Studio |
 
@@ -218,15 +220,32 @@ cp .env.example .env.local
 ## How it works
 
 ```
-~/.claude/projects/**/*.jsonl   ──▶   lib/usage.ts   ──▶   /api/usage   ──▶   React + Recharts UI
-   (Claude Code transcripts)          (parse + price)      (aggregate)        (charts & tables)
+~/.claude/projects/**/*.jsonl   ──▶   lib/usage-cache.ts   ──▶   lib/usage.ts   ──▶   /api/usage   ──▶   React + Recharts UI
+   (Claude Code transcripts)          (parse cache)              (aggregate)         (JSON)             (charts & tables)
 ```
 
-- **`lib/usage.ts`** — recursively scans your transcripts line by line, keeps only
-  `assistant` messages that carry a `usage` block, and **deduplicates** by
-  `message.id:requestId` (the same message can appear across multiple transcript
-  files due to Claude Code checkpointing). Parsed records are cached in memory for
-  30 seconds; **Refresh** forces a fresh scan.
+- **`lib/usage-cache.ts`** — the persistent parse cache. Parsing every transcript
+  line on every request doesn't scale as logs grow, so each `.jsonl` file is parsed
+  **once**. The parsed lines plus a per-file byte **offset** ("how far we've read")
+  are persisted to `.cache/usage-index.json`. On each load it `stat`s every file:
+  unchanged files are reused as-is, grown files are read only from their saved
+  offset onward (an incremental append), shrunk/replaced files are fully reparsed,
+  and deleted files drop out of the index. A trailing partial line (no newline yet)
+  is parsed for that one request only and never persisted, so a concurrent writer
+  mid-line doesn't corrupt the cache. The same dedup/sort/cost pipeline then runs
+  over the cached lines every time, so cached output is identical to a full reparse.
+  Cost and day are **not** stored in the cache — they're computed at merge time, so
+  a pricing change in `lib/pricing.ts` never requires a cache rebuild.
+  - **Incremental refresh** — the dashboard's **Refresh** button bypasses the
+    5-second in-memory TTL and re-runs the same incremental load (cheap: only new
+    bytes are parsed).
+  - **Full rebuild** — add `?rebuild=1` to `/api/usage` to discard the cache
+    entirely and do a full reparse of every file (useful after changing
+    `CLAUDE_PROJECTS_DIR`, or if you suspect the cache is out of sync).
+  - **Resetting the cache** — delete the `.cache/` directory to force a full
+    reparse on the next request; it's regenerated automatically.
+- **`lib/usage.ts`** — aggregation only now (`summarize()`); it gets already-parsed
+  records from `lib/usage-cache.ts` instead of scanning transcripts itself.
 - **`lib/pricing.ts`** — per-model rates in $/1M tokens. Cache writes are priced at
   1.25× input (5-minute TTL) or 2× (1-hour TTL); cache reads at 0.1× input. Model
   matching is longest-prefix, so new model variants degrade gracefully.
@@ -239,7 +258,8 @@ cp .env.example .env.local
 
 > [!TIP]
 > When Anthropic's pricing changes, update the rate table in `lib/pricing.ts`.
-> Unknown model strings are priced at `$0` until you add them.
+> Unknown model strings are priced at `$0` until you add them — no cache rebuild
+> needed, since cost is computed at merge time, not cached.
 
 ---
 
@@ -265,13 +285,16 @@ claude-usage-dashboard/
 │   ├── heatmap.tsx           # Weekday × hour cost heatmap
 │   └── stats.tsx             # Shared atoms (KPIs, tables, sort headers)
 ├── lib/
-│   ├── usage.ts              # Transcript scanning, dedup, aggregation, cache (server-only)
+│   ├── usage.ts              # Aggregation (summarize()) over already-parsed records
+│   ├── usage-cache.ts        # Persistent parse cache: incremental scan/parse/dedup (server-only)
+│   ├── usage-types.ts        # Shared UsageRecord type (avoids a usage.ts <-> usage-cache.ts cycle)
 │   ├── pricing.ts            # Per-model $/1M rates + cost calculation
 │   ├── effort.ts             # Effort type/order/labels — pure, client-safe
 │   ├── context.ts            # Builds usage summary for the chat panel
 │   ├── llm.ts                # LM Studio config
 │   ├── format.ts             # Number / date formatters
 │   └── utils.ts              # cn() class merger
+├── .cache/                   # Persisted parse-cache index (gitignored, machine-local)
 ├── .env.example              # Documented optional env vars
 └── package.json
 ```
@@ -300,7 +323,16 @@ at `~/.claude/projects`. If they live elsewhere, set `CLAUDE_PROJECTS_DIR` in
 `.env.local` and click **Refresh**.
 
 **My numbers look stale after a new session.**
-Parsed data is cached for 30 seconds. Click **Refresh** to force a re-scan.
+Parsed data is cached in memory for 5 seconds (and persisted to
+`.cache/usage-index.json` between server restarts). Click **Refresh** to force an
+incremental re-scan, or add `?rebuild=1` to `/api/usage` (or delete `.cache/`) to
+force a full reparse.
+
+**The numbers look wrong / out of sync after editing or moving transcript files by hand.**
+The cache detects size/mtime/inode changes automatically, but if you suspect it's
+out of sync (e.g. after bulk-editing files with a tool that preserves mtime),
+delete the `.cache/` directory or hit `/api/usage?rebuild=1` to force a clean
+full reparse.
 
 **A model shows `$0` cost.**
 Its model id isn't in the pricing table yet. Add it to `lib/pricing.ts`.
