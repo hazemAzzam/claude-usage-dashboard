@@ -30,6 +30,7 @@ no database, and no account or API key is required.
 - [Why use this](#why-use-this)
 - [Quick start](#quick-start)
 - [What you get — the five views](#what-you-get--the-five-views)
+- [Effort levels](#effort-levels)
 - [Ask about your usage (optional chat panel)](#ask-about-your-usage-optional-chat-panel)
 - [Configuration](#configuration)
 - [How it works](#how-it-works)
@@ -123,6 +124,57 @@ hour-of-day bar chart — surfacing your peak hour, peak weekday, and active hou
 
 ---
 
+## Effort levels
+
+Claude Code assistant messages carry a reasoning **effort** level — a top-level
+`effort` field on each log line, with an optional `perTurnEffort` field that
+overrides it for that one turn. The override only wins when it's itself a
+recognised level (`low`/`medium`/`high`/`xhigh`/`max`) — a missing or garbage
+`perTurnEffort` value falls back to `effort` instead of masking it. The
+dashboard reads this via `lib/effort.ts` and lets you filter and break down
+usage by it.
+
+| Log value | UI label  |
+| --------- | --------- |
+| `low`     | Low       |
+| `medium`  | Medium    |
+| `high`    | High      |
+| `xhigh`   | Extra     |
+| `max`     | Max       |
+| *(missing/unrecognised)* | Unknown |
+
+Claude Code only started writing the `effort` field after 2.1.28, so lines from
+2.1.28 and earlier have none. Those lines fall into the **Unknown** bucket
+rather than being dropped, so totals still add up. Most of them come from
+subagent transcripts (`<project>/<session>/subagents/*.jsonl`), so on an
+older history Unknown can be several percent of messages. It shrinks as those
+logs age out of the date range you're viewing.
+
+**Why `thinking_tokens` is ignored.** It's tempting to infer effort from
+`message.usage.output_tokens_details.thinking_tokens`, but that field is
+unreliable — it reads `0` on nearly all `xhigh`/`max` messages in practice, so
+it would systematically under-report high-effort usage. The dashboard never
+uses it; effort always comes from the `effort`/`perTurnEffort` log fields.
+
+**Same price, more output.** Per-token pricing (`lib/pricing.ts`) does not vary
+by effort — a `medium`-effort message and a `max`-effort message on the same
+model are billed at the same $/token rate. Cost per message rises with effort
+only because higher effort makes the model *generate more output tokens* per
+turn. Real-world example (Opus 4.8, average output tokens per assistant
+message): medium ≈ 1385, high ≈ 1575, xhigh ≈ 2064, max ≈ 3100.
+
+**Using it:** the **effort filter** in the header (next to the date range) is
+a single-select chip row — "All efforts" plus one chip per level seen in the
+current date window (`availableEfforts`); picking one narrows every view's
+data server-side, the same way the date range does. The **Efficiency** view's
+"Efficiency by model" table adds an **Output / msg** column, and any model
+with more than one effort level in range gets an expand chevron that reveals
+a per-effort breakdown (msgs, output/msg, cost, cost/msg) — mirroring how the
+Daily and Sessions tables expand into a per-model breakdown. The **Overview**
+also shows a compact "Cost by effort" card.
+
+---
+
 ## Ask about your usage (optional chat panel)
 
 The Overview includes an optional chat panel wired to a **local
@@ -178,8 +230,11 @@ cp .env.example .env.local
 - **`lib/pricing.ts`** — per-model rates in $/1M tokens. Cache writes are priced at
   1.25× input (5-minute TTL) or 2× (1-hour TTL); cache reads at 0.1× input. Model
   matching is longest-prefix, so new model variants degrade gracefully.
+- **`lib/effort.ts`** — pure, client-safe module defining the `Effort` type, its
+  display order, and UI labels (see [Effort levels](#effort-levels)). Both the
+  server-only aggregation in `lib/usage.ts` and client components import from it.
 - **`app/api/usage/route.ts`** — aggregates the parsed data for the requested range
-  and returns it as JSON.
+  (and optional `effort` filter) and returns it as JSON.
 - The UI is built with **shadcn/ui** components and **Recharts** charts.
 
 > [!TIP]
@@ -201,15 +256,18 @@ claude-usage-dashboard/
 │       ├── usage/route.ts    # GET /api/usage — scan + aggregate transcripts
 │       └── chat/route.ts     # POST /api/chat — proxy to LM Studio (SSE stream)
 ├── components/
-│   ├── views/                # overview, sessions, projects, daily, patterns
+│   ├── views/                # overview, sessions, projects, daily, efficiency, patterns
 │   ├── ui/                   # shadcn primitives
 │   ├── charts.tsx            # Recharts wrappers
 │   ├── chat-panel.tsx        # Streaming chat UI
+│   ├── date-range-inputs.tsx # Date range picker + quick presets
+│   ├── effort-filter.tsx     # Effort-level chip filter (header)
 │   ├── heatmap.tsx           # Weekday × hour cost heatmap
 │   └── stats.tsx             # Shared atoms (KPIs, tables, sort headers)
 ├── lib/
-│   ├── usage.ts              # Transcript scanning, dedup, aggregation, cache
+│   ├── usage.ts              # Transcript scanning, dedup, aggregation, cache (server-only)
 │   ├── pricing.ts            # Per-model $/1M rates + cost calculation
+│   ├── effort.ts             # Effort type/order/labels — pure, client-safe
 │   ├── context.ts            # Builds usage summary for the chat panel
 │   ├── llm.ts                # LM Studio config
 │   ├── format.ts             # Number / date formatters
