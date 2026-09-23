@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { costOf, type Usage } from "./pricing";
+import { compareEffort, type Effort, isEffort, parseEffort } from "./effort";
 
 // One assistant message, reduced to just what the dashboard needs.
 export interface UsageRecord {
@@ -17,6 +18,7 @@ export interface UsageRecord {
   output: number;
   cacheCreate: number;
   cacheRead: number;
+  effort: Effort;
 }
 
 export function projectsDir(): string {
@@ -57,6 +59,8 @@ interface RawLine {
   sessionId?: string;
   requestId?: string;
   message?: { id?: string; model?: string; usage?: Usage };
+  effort?: string;
+  perTurnEffort?: string | null;
 }
 
 async function parseFile(file: string, seen: Set<string>, out: UsageRecord[]) {
@@ -101,6 +105,9 @@ async function parseFile(file: string, seen: Set<string>, out: UsageRecord[]) {
       output: usage.output_tokens ?? 0,
       cacheCreate: usage.cache_creation_input_tokens ?? 0,
       cacheRead: usage.cache_read_input_tokens ?? 0,
+      // perTurnEffort overrides effort only when it's itself a recognised level —
+      // an unrecognised/garbage override must not mask a valid `effort` value.
+      effort: isEffort(rec.perTurnEffort ?? null) ? (rec.perTurnEffort as Effort) : parseEffort(rec.effort),
     });
   }
 }
@@ -154,7 +161,12 @@ function add(b: Bucket, r: UsageRecord) {
   b.messages += 1;
 }
 
-export type ModelBucket = { model: string } & Bucket;
+export type EffortBucket = { effort: Effort } & Bucket;
+
+// `efforts` is the per-effort split of this model (sorted by compareEffort);
+// present when the model has more than one effort level in the window, drives
+// the "Efficiency by model" table's expandable rows.
+export type ModelBucket = { model: string; efforts?: EffortBucket[] } & Bucket;
 // `models` is the per-model split of this day (cost desc); present on the
 // top-level `byDay` (drives the daily table's expandable rows), omitted on the
 // per-project `byDay` where it isn't needed.
@@ -201,6 +213,9 @@ export interface Summary {
   byDay: DayBucket[];
   byProject: ProjectRow[];
   byModel: ModelBucket[];
+  byEffort: EffortBucket[];
+  availableEfforts: Effort[]; // effort levels present in the date window, before the effort filter
+  effort: Effort | null; // the effort filter that was applied (echo)
   topSessions: Array<{ session: string; project: string; day: string; cost: number; messages: number }>;
   byDayModel: DayModelRow[];
   allSessions: SessionRow[];
@@ -217,18 +232,23 @@ export function summarize(
   records: UsageRecord[],
   sel: Range | DateWindow,
   meta: { builtAt: number; parseMs: number },
+  opts?: { effort?: Effort | null },
 ): Summary {
   const now = Date.now();
   const { from, to } =
     typeof sel === "object" ? sel : { from: cutoff(sel, now), to: now };
+  const effortFilter = opts?.effort ?? null;
 
   const totals = { ...empty(), sessions: 0 };
   const byDay = new Map<string, Bucket>();
   const byModel = new Map<string, Bucket>();
+  const byEffort = new Map<Effort, Bucket>();
+  const modelEffort = new Map<string, Map<Effort, Bucket>>(); // model -> (effort -> bucket)
   const dayModel = new Map<string, Map<string, Bucket>>(); // day -> (model -> bucket)
   const byHour = Array.from({ length: 24 }, () => empty());
   const byWeekday = Array.from({ length: 7 }, () => empty());
   const heatmap = Array.from({ length: 7 }, () => Array<number>(24).fill(0));
+  const availableEfforts = new Set<Effort>();
 
   const sessions = new Map<
     string,
@@ -241,6 +261,13 @@ export function summarize(
 
   for (const r of records) {
     if (r.ts < from || r.ts > to) continue;
+
+    // Collect the available-effort set from everything in the date window,
+    // BEFORE the effort filter narrows what actually gets aggregated — so the
+    // filter chip row always reflects what's selectable for this window.
+    availableEfforts.add(r.effort);
+    if (effortFilter && r.effort !== effortFilter) continue;
+
     add(totals, r);
 
     let d = byDay.get(r.day);
@@ -250,6 +277,16 @@ export function summarize(
     let m = byModel.get(r.model);
     if (!m) byModel.set(r.model, (m = empty()));
     add(m, r);
+
+    let me = modelEffort.get(r.model);
+    if (!me) modelEffort.set(r.model, (me = new Map()));
+    let meb = me.get(r.effort);
+    if (!meb) me.set(r.effort, (meb = empty()));
+    add(meb, r);
+
+    let eb = byEffort.get(r.effort);
+    if (!eb) byEffort.set(r.effort, (eb = empty()));
+    add(eb, r);
 
     let dm = dayModel.get(r.day);
     if (!dm) dayModel.set(r.day, (dm = new Map()));
@@ -361,7 +398,20 @@ export function summarize(
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([day, b]) => ({ day, ...b, models: dayModelBreakdown.get(day) ?? [] })),
     byProject,
-    byModel: [...byModel.entries()].map(([model, b]) => ({ model, ...b })).sort((a, b) => b.cost - a.cost),
+    byModel: [...byModel.entries()]
+      .map(([model, b]) => {
+        const efforts = modelEffort.get(model);
+        const effortsList = [...(efforts?.entries() ?? [])]
+          .map(([effort, eb]) => ({ effort, ...eb }))
+          .sort((a, b) => compareEffort(a.effort, b.effort));
+        return { model, ...b, efforts: effortsList };
+      })
+      .sort((a, b) => b.cost - a.cost),
+    byEffort: [...byEffort.entries()]
+      .map(([effort, b]) => ({ effort, ...b }))
+      .sort((a, b) => compareEffort(a.effort, b.effort)),
+    availableEfforts: [...availableEfforts].sort(compareEffort),
+    effort: effortFilter,
     topSessions: allSessions
       .slice(0, 12)
       .map((s) => ({ session: s.session, project: s.project, day: s.day, cost: s.cost, messages: s.messages })),

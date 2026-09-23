@@ -6,6 +6,8 @@ import { tokens } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateRangeInputs, type DateRangeValue } from "@/components/date-range-inputs";
+import { EffortFilter } from "@/components/effort-filter";
+import { compareEffort, type Effort } from "@/lib/effort";
 import { OverviewView } from "@/components/views/overview";
 import { SessionsView } from "@/components/views/sessions";
 import { ProjectsView } from "@/components/views/projects";
@@ -60,36 +62,55 @@ const VIEWS: { key: View; label: string }[] = [
 
 export default function Page() {
   const [range, setRange] = useState<DateRangeValue>(defaultRange);
+  const [effort, setEffort] = useState<Effort | null>(null);
   const [view, setView] = useState<View>("overview");
   const [data, setData] = useState<Summary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async (r: DateRangeValue, refresh = false) => {
+  const load = useCallback(async (r: DateRangeValue, ef: Effort | null, refresh = false, signal?: AbortSignal) => {
     if (!r.start || !r.end) return;
     setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams({ start: r.start, end: r.end });
+      if (ef) params.set("effort", ef);
       if (refresh) params.set("refresh", "1");
-      const res = await fetch(`/api/usage?${params.toString()}`);
+      const res = await fetch(`/api/usage?${params.toString()}`, { signal });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Request failed");
       setData(json);
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, []);
 
+  // Cancel the in-flight request when range/effort change again before it
+  // resolves, so a stale (slower, earlier) response never overwrites newer
+  // state — without this, overlapping fetches race and the last to resolve
+  // wins regardless of which request was issued more recently.
   useEffect(() => {
-    load(range);
-  }, [range, load]);
+    const controller = new AbortController();
+    load(range, effort, false, controller.signal);
+    return () => controller.abort();
+  }, [range, effort, load]);
 
-  // Stable string key for resetting per-range view state when the window changes.
-  const rangeKey = useMemo(() => `${range.start}_${range.end}`, [range]);
+  // Stable string key for resetting per-range view state when the window or
+  // effort filter changes.
+  const rangeKey = useMemo(() => `${range.start}_${range.end}_${effort ?? "all"}`, [range, effort]);
   const label = rangeLabel(range);
+
+  // Keep the currently selected effort visible as a chip even if the latest
+  // response's availableEfforts doesn't include it (e.g. filter narrowed a
+  // window that no longer has that level).
+  const effortOptions = useMemo(() => {
+    const opts = data?.availableEfforts ?? [];
+    if (effort && !opts.includes(effort)) return [...opts, effort].sort(compareEffort);
+    return opts;
+  }, [data, effort]);
 
   return (
     <main className="mx-auto max-w-6xl px-5 py-8">
@@ -101,9 +122,10 @@ export default function Page() {
             <code className="rounded bg-muted px-1.5 py-0.5 text-[12px]">~/.claude/projects</code> transcripts.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <DateRangeInputs value={range} onChange={setRange} />
-          <Button variant="outline" size="sm" onClick={() => load(range, true)} disabled={loading} title="Re-scan transcripts">
+          <EffortFilter value={effort} options={effortOptions} onChange={setEffort} />
+          <Button variant="outline" size="sm" onClick={() => load(range, effort, true)} disabled={loading} title="Re-scan transcripts">
             {loading ? "…" : "↻ Refresh"}
           </Button>
         </div>

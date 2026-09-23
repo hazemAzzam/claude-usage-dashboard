@@ -1,5 +1,6 @@
 import { getRecords, summarize, type Summary } from "./usage";
-import { tokens, usdExact } from "./format";
+import { EFFORT_LABEL } from "./effort";
+import { tokens, usdExact, usdFine } from "./format";
 
 function totalsLine(s: Summary): string {
   const t = s.totals;
@@ -50,6 +51,22 @@ export async function buildUsageContext(): Promise<string> {
   lines.push("## Most expensive sessions");
   for (const s of all.topSessions.slice(0, 10)) {
     lines.push(`- ${s.project} on ${s.day}: ${usdExact(s.cost)}, ${s.messages} msgs`);
+  }
+  lines.push("");
+  lines.push("## Cost by model × effort (all time)");
+  lines.push(
+    "Effort is a reasoning-depth setting (low/medium/high/xhigh/max), not a model choice; " +
+      "per-token price is identical across effort levels for a given model — cost/msg differs " +
+      "purely because higher effort makes the model emit more output tokens per message.",
+  );
+  for (const m of all.byModel.filter((m) => m.cost > 0)) {
+    for (const e of m.efforts ?? []) {
+      lines.push(
+        `- ${m.model} / ${EFFORT_LABEL[e.effort]}: ${e.messages} msgs, ` +
+          `${Math.round(e.messages ? e.output / e.messages : 0)} output/msg, ` +
+          `${usdFine(e.messages ? e.cost / e.messages : 0)}/msg`,
+      );
+    }
   }
   lines.push("");
   lines.push("## Daily cost (last 30 days)");

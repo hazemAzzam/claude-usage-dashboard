@@ -1,7 +1,8 @@
 "use client";
 
 import type { Summary } from "@/lib/usage";
-import { num, tokens, usd, usdExact } from "@/lib/format";
+import { EFFORT_LABEL } from "@/lib/effort";
+import { num, tokens, usd, usdExact, usdFine } from "@/lib/format";
 import { CostByModel, ModelSplit, ProjectBars, TokenBars, PALETTE } from "@/components/charts";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -126,6 +127,31 @@ export function OverviewView({ data, rangeLabel }: { data: Summary; rangeLabel?:
         <MiniStat label="Avg cost / session" value={usdExact(avgPerSession)} />
         <MiniStat label="Cache savings" value={usdExact(cacheSavings(t))} hint="vs. paying full input price for cached reads" />
       </section>
+
+      {data.byEffort.some((e) => e.messages > 0) && (
+        <section className="mb-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium">Cost by effort</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3 lg:grid-cols-6">
+                {data.byEffort
+                  .filter((e) => e.messages > 0)
+                  .map((e) => (
+                    <li key={e.effort} className="flex flex-col gap-0.5 rounded-md border px-2.5 py-1.5">
+                      <span className="text-xs text-muted-foreground">{EFFORT_LABEL[e.effort]}</span>
+                      <span className="text-sm font-medium tabular-nums">{usdExact(e.cost)}</span>
+                      <span className="text-[11px] text-muted-foreground tabular-nums">
+                        {num(e.messages)} msgs · {usdFine(e.messages ? e.cost / e.messages : 0)}/msg
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
       <section className="mb-6">
         <ChatPanel />
