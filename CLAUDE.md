@@ -22,6 +22,10 @@ updated via a persistent cache (in-memory hot copy TTL 5s; see "Parse cache").
   `lib/usage-cache.ts` with `import type` — type-only imports are fully
   erased at compile time, so this never creates a runtime circular
   dependency between the two modules despite the "cross" import direction.
+- **`Summary.cache`** (`"warm" | "cold" | "rebuilt"`) reports how much parsing
+  the load behind a response did. `cacheState(stats, ms)` in `lib/usage.ts`
+  derives it from the existing `SweepStats`; the route passes it through
+  `summarize()`'s `meta`. It is display-only (sidebar parse card).
 - **API routes** (`app/api/usage`, `app/api/chat`) are thin adapters: parse query
   params, call into `lib/`, return JSON or a stream. No aggregation logic lives
   in the route handlers themselves.
@@ -34,9 +38,45 @@ updated via a persistent cache (in-memory hot copy TTL 5s; see "Parse cache").
 
 Mirrors the server-side split: hooks own state/fetching/derivation, components
 are presentational (props/hook result in, JSX out — no `fetch`, no `useEffect`
-for derived data, no inline sorting/aggregation in JSX). `app/page.tsx` is pure
-composition: it calls `useDashboardFilters` + `useUsageSummary` and renders the
-active view.
+for derived data, no inline sorting/aggregation/string-building in JSX).
+Small derivations a shell component needs (effort items with cost labels,
+preset day counts, breadcrumb title, sidebar counts) are exported pure
+functions in the hook files, not logic inside the `.tsx`.
+
+Routing is Next.js App Router with a route group: **`app/(dashboard)/layout.tsx`**
+is a **server** layout that only reads the `sidebar_state` cookie (so the
+collapsed/expanded state persists across reloads) and renders the client
+`components/shell/dashboard-frame.tsx`, which is the composition — `TooltipProvider` ›
+`DashboardProvider` › `SidebarProvider` › `AppSidebar` + `SidebarInset`
+(`TopBar`, error banner, first-load skeleton / dimmed-on-refetch children,
+footer) plus the chat `Sheet`. Each view is its own tiny route
+(`app/(dashboard)/{page,sessions,projects,daily,efficiency,patterns}/page.tsx`)
+that calls `useLoadedDashboard()` and renders one existing view from
+`components/views/*` (`key={filters.rangeKey}` on Sessions/Projects so
+per-range view state resets). `app/page.tsx` no longer exists; `app/layout.tsx`
+only owns `<html>`/`<body>`/fonts/metadata. There are no URL search params —
+filters live in memory only.
+
+- **`hooks/use-dashboard.tsx`** — `DashboardProvider` / `useDashboard()`
+  compose `useDashboardFilters` + `useUsageSummary` (both unchanged) plus the
+  chat sheet's open state and chat history (`hooks/use-chat.ts` — held here
+  because the Sheet unmounts its content when closed; the in-flight stream is
+  aborted on unmount), and expose `{ filters, data, error, loading,
+  refresh, effortOpts, chatOpen, setChatOpen }`. The provider lives in the
+  layout, *above* the pages, so navigating between routes never refetches
+  `/api/usage` — only a filter change or Refresh does.
+  `useLoadedDashboard()` is the page-facing variant that narrows `data` to
+  non-null (the layout only renders children once a Summary exists). The file
+  also exports the shell's pure derivations: `navCounts`, `effortItems`
+  (effort filter items with per-level cost labels), `parseStats` (card + footer strings), `isNavActive`, `effortLabel`, `viewTitle`.
+  `rangeLabel` is a placeholder until mounted (`hooks/use-mounted.ts`) so the
+  client-clock default range never causes a hydration mismatch.
+- **`components/shell/*`** — `app-sidebar.tsx` (inset sidebar,
+  `collapsible="icon"`; only `usePathname()` for the active item),
+  `top-bar.tsx` (trigger, breadcrumb, preset segmented control, Ask Claude),
+  `date-range-picker.tsx` (popover: presets with day counts, two-month range
+  calendar, Cancel/Apply), `parse-stats.tsx` (sidebar-footer card + Refresh).
+  All presentational.
 
 - **`hooks/use-usage-summary.ts`** — owns fetching `/api/usage` for
   `{start, end, effort}`, in-flight request cancellation, loading/error state,
@@ -51,7 +91,7 @@ active view.
   whether the pending run is a manual refresh (sends `refresh=1`) vs. a
   filter-driven reload. `data` is never cleared while a request is in
   flight — the previous result stays on screen through a filter change or a
-  refresh, and `app/page.tsx` dims the view on `loading` rather than
+  refresh, and the dashboard layout dims the view on `loading` rather than
   swapping back to the skeleton.
 - **`hooks/use-dashboard-filters.ts`** — date range + quick presets + effort
   selection state, plus the derived `rangeKey` (`${start}_${end}_${effort}`)
@@ -61,16 +101,25 @@ active view.
   mount — presets like "Today"/"This month" depend on the current date, so
   precomputing them once would go stale after midnight, and calling
   `new Date()` during render is impure regardless. Which preset is active is
-  tracked as its own `selectedPreset` key (set by `selectPreset`, cleared by
-  direct date-input edits) rather than recomputed by re-calling `getRange()`
+  tracked as its own `selectedPreset` key (set by `selectPreset`, cleared when
+  a hand-picked popover range is applied via `applyRange`) rather than recomputed by re-calling `getRange()`
   at render to compare — that would reintroduce the same staleness and
   render-impurity problem for the highlight. Also exports a plain
   `effortOptions(data, effort)` helper (not a hook) that keeps the currently
-  selected effort visible as a chip even if the latest response's
+  selected effort visible in the sidebar list even if the latest response's
   `availableEfforts` no longer includes it; it's a separate function rather
   than folded into the hook to avoid a circular dependency (`useUsageSummary`
   needs `range`/`effort` from this hook, so this hook can't also depend on
   `useUsageSummary`'s `data`).
+- **`useDateRangeDraft`** (in `hooks/use-dashboard-filters.ts`) — draft state
+  for the date popover: the draft range, visible month, preset rows with
+  "Nd" hints, and `apply`/`cancel`. Nothing reaches the filters until Apply.
+  Preset day counts are computed in the open handler (they call each preset's
+  `getRange()`, which reads the current date), never during render. Its pure
+  helpers (`parseKey`, `dayCount`, `draftLabel`, `draftHint`, `draftToValue`,
+  `presetRows`, `segmentPresets`) are exported. `applyRange(value, presetKey)`
+  on the filters hook commits a popover selection and keeps the preset
+  highlight if it was an untouched preset pick.
 - **`hooks/use-sortable.ts`** / **`hooks/use-expandable.ts`** — generic sort
   key/dir/toggle and open-row-id-set toggle, replacing logic that used to be
   duplicated across the Sessions/Daily/Efficiency views.
@@ -149,6 +198,23 @@ that must hold for any change here:
 shared `empty()` bucket shape and `add()` accumulator — each record is folded
 into every relevant bucket in a single pass. Follow this pattern for new
 breakdowns rather than post-processing `records` again elsewhere.
+
+## UI primitives (shadcn on Tailwind v3)
+
+`components.json` targets shadcn `base-nova` (Base UI), but the project is on
+**Tailwind v3** and stays there. Generated primitives in `components/ui/`
+(sidebar, popover, calendar, tooltip, sheet, toggle-group, ...) are written for
+Tailwind v4, so after `npx shadcn add ...` they must be rewritten by hand:
+`w-(--x)` -> `w-[var(--x)]`, `data-open:`/`data-closed:`/`data-active:` ->
+`data-[open]:` etc. (Base UI sets presence attributes such as `data-open`, not
+`data-state`), `size-8!` -> `!size-8`, `has-data-[x]` -> `has-[[data-x]]`,
+`outline-hidden` -> `outline-none`, `in-data-[..]` -> `group-data-[..]`,
+`--spacing(n)` -> rem, and the `cn` import must be `@/lib/utils` (the CLI once
+added the unrelated `cn` npm package). `--sidebar-*` colors are HSL triplets in
+`app/globals.css` (used as `hsl(var(--sidebar-*))`) mapped in
+`tailwind.config.ts`; `--radius-md` is defined there too because generated
+classes reference it. Older generated files (`button.tsx`) still contain some
+v4 syntax that silently does nothing.
 
 ## Rules
 

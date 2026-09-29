@@ -6,7 +6,6 @@ import { num, tokens, usd, usdExact, usdFine } from "@/lib/format";
 import { CostByModel, ModelSplit, ProjectBars, TokenBars, PALETTE } from "@/components/charts";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChatPanel } from "@/components/chat-panel";
 import { DataTable, Empty, Kpi, MiniStat, shortModel } from "@/components/stats";
 
 function cacheSavings(t: Summary["totals"]): number {
@@ -152,10 +151,6 @@ export function OverviewView({ data, rangeLabel }: { data: Summary; rangeLabel?:
           </Card>
         </section>
       )}
-
-      <section className="mb-6">
-        <ChatPanel />
-      </section>
     </>
   );
 }

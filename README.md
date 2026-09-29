@@ -164,8 +164,8 @@ only because higher effort makes the model *generate more output tokens* per
 turn. Real-world example (Opus 4.8, average output tokens per assistant
 message): medium ≈ 1385, high ≈ 1575, xhigh ≈ 2064, max ≈ 3100.
 
-**Using it:** the **effort filter** in the header (next to the date range) is
-a single-select chip row — "All efforts" plus one chip per level seen in the
+**Using it:** the **effort filter** in the sidebar's "Effort" group is
+a single-select list (with cost per level) — "All efforts" plus one item per level seen in the
 current date window (`availableEfforts`); picking one narrows every view's
 data server-side, the same way the date range does. The **Efficiency** view's
 "Efficiency by model" table adds an **Output / msg** column, and any model
@@ -255,7 +255,7 @@ cp .env.example .env.local
   server-only aggregation in `lib/usage.ts` and client components import from it.
 - **`app/api/usage/route.ts`** — aggregates the parsed data for the requested range
   (and optional `effort` filter) and returns it as JSON.
-- **`hooks/`** — all client-side state, fetching, and derived view models. `app/page.tsx`
+- **`hooks/`** — all client-side state, fetching, and derived view models. the route pages under `app/(dashboard)/`
   and `components/views/*` are presentational: they take hook results/props in and render
   JSX out, with no `fetch`, `useEffect`, or inline sorting/aggregation of their own. See
   [Client layering](#client-layering) below.
@@ -271,10 +271,11 @@ cp .env.example .env.local
 ## Client layering
 
 The client is split the same way React 19 encourages: **hooks own state, fetching,
-and derived data; components are presentational.** `app/page.tsx` composes
-`useDashboardFilters` + `useUsageSummary` and renders the active view — no `fetch`,
-`useEffect`, or inline sorting/aggregation lives in `app/page.tsx` or `components/`
-anymore. See `CLAUDE.md` for the full hook list and the server-only import rule.
+and derived data; components are presentational.** `app/(dashboard)/layout.tsx`
+mounts a `DashboardProvider` (`useDashboardFilters` + `useUsageSummary`) so filters and the
+fetched summary are shared across the per-view routes (`/`, `/sessions`, `/projects`,
+`/daily`, `/efficiency`, `/patterns`) without refetching on navigation — no `fetch`,
+`useEffect`, or inline sorting/aggregation lives in the pages or `components/`. See `CLAUDE.md` for the full hook list and the server-only import rule.
 
 ---
 
@@ -304,8 +305,7 @@ claude-usage-dashboard/
 │   ├── ui/                   # shadcn primitives
 │   ├── charts.tsx            # Recharts wrappers
 │   ├── chat-panel.tsx        # Streaming chat UI
-│   ├── date-range-inputs.tsx # Date range picker + quick presets (presets passed in as data)
-│   ├── effort-filter.tsx     # Effort-level chip filter (header)
+│   ├── shell/                # app-sidebar, top-bar, date-range-picker, parse-stats — presentational
 │   ├── heatmap.tsx           # Weekday × hour cost heatmap
 │   └── stats.tsx             # Shared atoms (KPIs, tables, sort headers)
 ├── lib/

@@ -1,4 +1,4 @@
-import { getRecords, summarize, type Summary } from "./usage";
+import { cacheState, getRecords, summarize, type Summary } from "./usage";
 import { EFFORT_LABEL } from "./effort";
 import { tokens, usdExact, usdFine } from "./format";
 
@@ -16,8 +16,8 @@ function totalsLine(s: Summary): string {
 // A compact, information-dense text snapshot of the user's Claude Code usage,
 // injected as system context so a local model can answer questions about it.
 export async function buildUsageContext(): Promise<string> {
-  const { records, builtAt, ms } = await getRecords();
-  const meta = { builtAt, parseMs: ms };
+  const { records, builtAt, ms, stats } = await getRecords();
+  const meta = { builtAt, parseMs: ms, cache: cacheState(stats, ms) };
   const all = summarize(records, "all", meta);
   const d30 = summarize(records, "30d", meta);
   const d7 = summarize(records, "7d", meta);

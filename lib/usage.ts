@@ -37,6 +37,19 @@ export async function getRecords(
   return getCachedRecords({ force, rebuild });
 }
 
+// How much work the load behind this response did, derived from the sweep
+// stats: "warm" = nothing needed parsing (in-memory hit or unchanged files),
+// "cold" = some files were new/grown/changed and only those were parsed,
+// "rebuilt" = every file was reparsed (`?rebuild=1`, first run, cache
+// version bump). `ms === 0` marks a TTL hit in getCachedRecords, whose
+// `stats` are the previous load's and would otherwise misreport.
+export type CacheState = "warm" | "cold" | "rebuilt";
+
+export function cacheState(stats: SweepStats, ms: number): CacheState {
+  if (ms === 0 || (stats.reparsed === 0 && stats.appended === 0)) return "warm";
+  return stats.filesTotal > 0 && stats.reparsed >= stats.filesTotal ? "rebuilt" : "cold";
+}
+
 // ---- aggregation ----
 export type Range = "7d" | "30d" | "90d" | "all";
 
@@ -104,6 +117,7 @@ export interface Summary {
   to: number; // window end (epoch ms)
   builtAt: number;
   parseMs: number;
+  cache: CacheState;
   generatedAt: number;
   totals: Bucket & { sessions: number };
   byDay: DayBucket[];
@@ -127,7 +141,7 @@ export type DateWindow = { from: number; to: number };
 export function summarize(
   records: UsageRecord[],
   sel: Range | DateWindow,
-  meta: { builtAt: number; parseMs: number },
+  meta: { builtAt: number; parseMs: number; cache: CacheState },
   opts?: { effort?: Effort | null },
 ): Summary {
   const now = Date.now();
@@ -288,6 +302,7 @@ export function summarize(
     to,
     builtAt: meta.builtAt,
     parseMs: meta.parseMs,
+    cache: meta.cache,
     generatedAt: now,
     totals,
     byDay: [...byDay.entries()]

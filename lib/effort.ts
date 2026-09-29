@@ -1,6 +1,6 @@
 // Pure, client-safe (no node imports). Shared source of truth for the
 // "effort" reasoning-level dimension so both server aggregation (lib/usage.ts)
-// and client components (effort-filter.tsx, efficiency.tsx) agree on the
+// and client components (the sidebar effort items, efficiency.tsx) agree on the
 // set of levels, their order, and their display labels.
 
 export const EFFORT_ORDER = ["low", "medium", "high", "xhigh", "max", "unknown"] as const;

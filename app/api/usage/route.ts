@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getRecords, summarize } from "@/lib/usage";
+import { cacheState, getRecords, summarize } from "@/lib/usage";
 import { isEffort } from "@/lib/effort";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     const { records, builtAt, ms, stats } = await getRecords(force, rebuild);
     // Explicit window when both bounds are valid; otherwise default to last 30 days.
     const sel = start !== null && end !== null ? { from: start, to: end } : "30d";
-    const summary = summarize(records, sel, { builtAt, parseMs: ms }, { effort });
+    const summary = summarize(records, sel, { builtAt, parseMs: ms, cache: cacheState(stats, ms) }, { effort });
     return NextResponse.json(summary, {
       headers: {
         "X-Usage-Ingest": `files=${stats.filesTotal};reparsed=${stats.reparsed};appended=${stats.appended};parsedBytes=${stats.parsedBytes};ms=${stats.ms}`,
