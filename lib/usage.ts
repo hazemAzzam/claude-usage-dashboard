@@ -1,5 +1,6 @@
 import "server-only";
 import { compareEffort, type Effort } from "./effort";
+import { ratesFor, type Rates } from "./pricing";
 import { getCachedRecords, type SweepStats } from "./usage-cache";
 
 export { projectsDir } from "./usage-cache";
@@ -21,6 +22,9 @@ export interface UsageRecord {
   cacheCreate: number;
   cacheRead: number;
   effort: Effort;
+  // Subagent/sidechain id; absent or "" for the main thread. Only used to key
+  // the message-position counter (see summarize()).
+  agent?: string;
 }
 
 // Records now come from the persistent parse cache (lib/usage-cache.ts)
@@ -37,6 +41,19 @@ export async function getRecords(
   return getCachedRecords({ force, rebuild });
 }
 
+// How much work the load behind this response did, derived from the sweep
+// stats: "warm" = nothing needed parsing (in-memory hit or unchanged files),
+// "cold" = some files were new/grown/changed and only those were parsed,
+// "rebuilt" = every file was reparsed (`?rebuild=1`, first run, cache
+// version bump). `ms === 0` marks a TTL hit in getCachedRecords, whose
+// `stats` are the previous load's and would otherwise misreport.
+export type CacheState = "warm" | "cold" | "rebuilt";
+
+export function cacheState(stats: SweepStats, ms: number): CacheState {
+  if (ms === 0 || (stats.reparsed === 0 && stats.appended === 0)) return "warm";
+  return stats.filesTotal > 0 && stats.reparsed >= stats.filesTotal ? "rebuilt" : "cold";
+}
+
 // ---- aggregation ----
 export type Range = "7d" | "30d" | "90d" | "all";
 
@@ -45,10 +62,98 @@ function cutoff(range: Range, now: number): number {
   return days === Infinity ? 0 : now - days * 86_400_000;
 }
 
-const empty = () => ({ cost: 0, input: 0, output: 0, cacheCreate: 0, cacheRead: 0, messages: 0 });
-type Bucket = ReturnType<typeof empty>;
+// `saved` is GROSS cache-read savings: what the cache-read tokens would have
+// cost at the full input rate minus what they cost at the cache-read rate
+// (API-equivalent $). It ignores the premium paid to write the cache; see
+// `Summary.cacheNetSaved` for the net figure.
+const empty = () => ({ cost: 0, input: 0, output: 0, cacheCreate: 0, cacheRead: 0, messages: 0, saved: 0 });
+export type Bucket = ReturnType<typeof empty>;
 
-function add(b: Bucket, r: UsageRecord) {
+// ratesFor() scans a prefix table; memoise per model id for the hot loop.
+const rateMemo = new Map<string, Rates>();
+function rates(model: string): Rates {
+  let r = rateMemo.get(model);
+  if (!r) rateMemo.set(model, (r = ratesFor(model)));
+  return r;
+}
+
+// Per-record price parts, computed ONCE per record and shared by every bucket
+// it is folded into. `write` is the cache-write cost taken as the residual of
+// r.cost (exact, including the 5m/1h TTL split that raw counts can't recover).
+interface Priced {
+  inC: number;
+  outC: number;
+  crC: number;
+  write: number;
+  saved: number; // gross cache-read savings
+  net: number; // saved minus the cache-write premium over plain input
+}
+const NO_PRICE: Priced = { inC: 0, outC: 0, crC: 0, write: 0, saved: 0, net: 0 };
+function priced(r: UsageRecord): Priced {
+  const x = rates(r.model);
+  const inC = (r.input * x.input) / 1e6;
+  const outC = (r.output * x.output) / 1e6;
+  const crC = (r.cacheRead * x.cacheRead) / 1e6;
+  const write = r.cost - inC - outC - crC;
+  const saved = (r.cacheRead * (x.input - x.cacheRead)) / 1e6;
+  const premium = write - (r.cacheCreate * x.input) / 1e6;
+  return { inC, outC, crC, write, saved, net: saved - premium };
+}
+
+// Cost split by token type. cacheWrite is the residual (cost minus the other
+// three), so it absorbs the 5m/1h TTL pricing that raw counts can't recover.
+export type TokenCost = { input: number; output: number; cacheWrite: number; cacheRead: number };
+const emptyTok = () => ({ input: 0, output: 0, cacheRead: 0 });
+type TokAcc = ReturnType<typeof emptyTok>;
+function addTok(t: TokAcc, p: Priced) {
+  t.input += p.inC;
+  t.output += p.outC;
+  t.cacheRead += p.crC;
+}
+function finishTok(t: TokAcc, cost: number): TokenCost {
+  const cacheWrite = cost - t.input - t.output - t.cacheRead;
+  // Clamp float noise (and unknown-model records priced 0) to 0.
+  return { ...t, cacheWrite: cacheWrite < 1e-9 ? 0 : cacheWrite };
+}
+
+// Message position within a session, bucketed. hi === null is open-ended.
+export const TURN_BUCKETS: ReadonlyArray<{ label: string; lo: number; hi: number | null }> = [
+  { label: "1–25", lo: 1, hi: 25 },
+  { label: "26–50", lo: 26, hi: 50 },
+  { label: "51–100", lo: 51, hi: 100 },
+  { label: "101–150", lo: 101, hi: 150 },
+  { label: "151–250", lo: 151, hi: 250 },
+  { label: "251+", lo: 251, hi: null },
+];
+function turnBucketIndex(pos: number): number {
+  for (let i = 0; i < TURN_BUCKETS.length; i++) {
+    const hi = TURN_BUCKETS[i].hi;
+    if (hi === null || pos <= hi) return i;
+  }
+  return TURN_BUCKETS.length - 1;
+}
+export type TurnBucket = { label: string; lo: number; hi: number | null } & Bucket;
+
+// Slim per-model cost used by the project day chart (no token counts needed).
+export type DayModelCost = { model: string; cost: number };
+
+export type DaySession = { session: string; project: string; cost: number; messages: number };
+
+// Totals for the equal-length window immediately before the selected one.
+export interface PeriodTotals {
+  from: number;
+  to: number;
+  // true when the selected window ends in the future: the previous window was
+  // trimmed to the same elapsed length so a partial period isn't compared with
+  // a complete one.
+  partial: boolean;
+  totals: Bucket & { sessions: number };
+  cacheNetSaved: number;
+  byDay: Array<{ day: string; cost: number }>;
+}
+
+function add(b: Bucket, r: UsageRecord, p: Priced) {
+  b.saved += p.saved;
   b.cost += r.cost;
   b.input += r.input;
   b.output += r.output;
@@ -64,9 +169,19 @@ export type EffortBucket = { effort: Effort } & Bucket;
 // the "Efficiency by model" table's expandable rows.
 export type ModelBucket = { model: string; efforts?: EffortBucket[] } & Bucket;
 // `models` is the per-model split of this day (cost desc); present on the
-// top-level `byDay` (drives the daily table's expandable rows), omitted on the
-// per-project `byDay` where it isn't needed.
-export type DayBucket = { day: string; models?: ModelBucket[] } & Bucket;
+// top-level `byDay` (drives the daily table's expandable rows). Each project's
+// `byDay` carries a slimmer `models: {model, cost}[]` instead (see ProjectRow).
+// The optional extras are only set on the top-level `byDay`: `hours` is cost
+// per LOCAL hour 0..23 (same convention as byHour/heatmap), `topSessions` the
+// day's 5 costliest sessions.
+export type DayBucket = {
+  day: string;
+  models?: ModelBucket[];
+  sessions?: number;
+  hours?: number[];
+  tokenCost?: TokenCost;
+  topSessions?: DaySession[];
+} & Bucket;
 
 // One row per day with a cost column per model (model name -> cost). Used for
 // the multi-line "cost over time, split by model" chart.
@@ -96,7 +211,7 @@ export type ProjectRow = {
   project: string;
   sessions: number;
   models: ModelBucket[];
-  byDay: DayBucket[];
+  byDay: Array<{ day: string; models: DayModelCost[] } & Bucket>;
 } & Bucket;
 
 export interface Summary {
@@ -104,11 +219,18 @@ export interface Summary {
   to: number; // window end (epoch ms)
   builtAt: number;
   parseMs: number;
+  cache: CacheState;
   generatedAt: number;
   totals: Bucket & { sessions: number };
+  // Gross `saved` minus the cache-write premium over plain input (range total).
+  cacheNetSaved: number;
   byDay: DayBucket[];
   byProject: ProjectRow[];
   byModel: ModelBucket[];
+  // Every model seen in ANY record (ignores the date window and effort
+  // filter), by total cost desc then id. Feeds `modelPalette` so a model keeps
+  // its colour across filters and pages.
+  allModels: string[];
   byEffort: EffortBucket[];
   availableEfforts: Effort[]; // effort levels present in the date window, before the effort filter
   effort: Effort | null; // the effort filter that was applied (echo)
@@ -118,6 +240,13 @@ export interface Summary {
   byHour: Array<{ hour: number } & Bucket>; // 0..23
   byWeekday: Array<{ weekday: number } & Bucket>; // 0=Sun..6=Sat
   heatmap: number[][]; // [weekday 0..6][hour 0..23] -> cost
+  turnBuckets: TurnBucket[]; // in-range cost by message position within its session
+  tokenCost: TokenCost; // in-range cost split by token type
+  previous: PeriodTotals | null; // prior equal-length window; null for unbounded ("all") ranges
+  // The CURRENT calendar month (containing generatedAt), ALL efforts, NOT
+  // range- or effort-filtered: the plan-value card is always "this month".
+  // byDay is dense: one cost per day 1..daysInMonth (0 where no usage).
+  planMonth: { month: string; daysInMonth: number; byDay: Array<{ day: string; cost: number }> };
 }
 
 // An explicit date window (epoch ms). `summarize` also accepts a preset Range
@@ -127,10 +256,10 @@ export type DateWindow = { from: number; to: number };
 export function summarize(
   records: UsageRecord[],
   sel: Range | DateWindow,
-  meta: { builtAt: number; parseMs: number },
-  opts?: { effort?: Effort | null },
+  meta: { builtAt: number; parseMs: number; cache: CacheState },
+  opts?: { effort?: Effort | null; now?: number },
 ): Summary {
-  const now = Date.now();
+  const now = opts?.now ?? Date.now();
   const { from, to } =
     typeof sel === "object" ? sel : { from: cutoff(sel, now), to: now };
   const effortFilter = opts?.effort ?? null;
@@ -145,6 +274,50 @@ export function summarize(
   const byWeekday = Array.from({ length: 7 }, () => empty());
   const heatmap = Array.from({ length: 7 }, () => Array<number>(24).fill(0));
   const availableEfforts = new Set<Effort>();
+  const turns = TURN_BUCKETS.map(() => empty());
+  const tokTotal = emptyTok();
+  const dayHours = new Map<string, number[]>();
+  const dayTok = new Map<string, TokAcc>();
+  const daySessions = new Map<string, Map<string, DaySession>>();
+
+  // Message position counter. `records` arrive globally ts-sorted from
+  // buildRecords, so counting every record (before any window/effort filter)
+  // gives each message its true position in the session's whole history.
+  // Keyed by session + agent: subagent (sidechain) transcripts carry the parent
+  // sessionId but have their own conversation, so they must not advance the
+  // main thread's position.
+  const sessionPos = new Map<string, number>();
+  const allModelCost = new Map<string, number>(); // every record, before any filter
+
+  // Previous window: same length, ending where the selected one starts. Only
+  // meaningful when the selection is bounded (from > 0).
+  const hasPrev = from > 0;
+  // Whole LOCAL calendar days, so a DST change inside the window can't shift
+  // the boundary by an hour (a ms subtraction would).
+  const nDays = Math.round((to - from + 1) / 86_400_000);
+  const fd = new Date(from);
+  const prevFrom = new Date(
+    fd.getFullYear(), fd.getMonth(), fd.getDate() - nDays,
+    fd.getHours(), fd.getMinutes(), fd.getSeconds(), fd.getMilliseconds(),
+  ).getTime();
+  const prevTotals = { ...empty(), sessions: 0 };
+  let netSaved = 0;
+  let prevNetSaved = 0;
+  const prevSessions = new Set<string>();
+  const prevByDay = new Map<string, number>();
+
+  // Trim the previous window when the selection runs into the future.
+  const partial = hasPrev && to > now;
+  const prevEnd = partial ? prevFrom + Math.max(0, now - from) + 1 : from; // exclusive
+
+  // Plan month: the CURRENT calendar month (containing `now`, local time like
+  // r.day), all efforts, independent of the selected range.
+  const nowDate = new Date(now);
+  const pmYear = nowDate.getFullYear();
+  const pmMonth = nowDate.getMonth();
+  const monthKey = `${pmYear}-${String(pmMonth + 1).padStart(2, "0")}`;
+  const daysInMonth = new Date(pmYear, pmMonth + 1, 0).getDate();
+  const planDays = Array<number>(daysInMonth).fill(0);
 
   const sessions = new Map<
     string,
@@ -152,49 +325,92 @@ export function summarize(
   >();
   const projects = new Map<
     string,
-    { bucket: Bucket; sessions: Set<string>; models: Map<string, Bucket>; byDay: Map<string, Bucket> }
+    {
+      bucket: Bucket;
+      sessions: Set<string>;
+      models: Map<string, Bucket>;
+      byDay: Map<string, Bucket>;
+      dayModels: Map<string, Map<string, number>>; // day -> model -> cost (project detail chart)
+    }
   >();
 
   for (const r of records) {
-    if (r.ts < from || r.ts > to) continue;
+    // Claude Code's locally generated notices (rate-limit etc.), not API calls. See CLAUDE.md "Rules".
+    if (r.model === "<synthetic>") continue;
+    const posKey = r.agent ? `${r.session}\0${r.agent}` : r.session;
+    const pos = (sessionPos.get(posKey) ?? 0) + 1;
+    sessionPos.set(posKey, pos);
+    allModelCost.set(r.model, (allModelCost.get(r.model) ?? 0) + r.cost);
+    const effortOk = !effortFilter || r.effort === effortFilter;
+    const inRange = r.ts >= from && r.ts <= to;
+    const inPrev = hasPrev && r.ts >= prevFrom && r.ts < prevEnd;
+    const px = effortOk && (inRange || inPrev) ? priced(r) : NO_PRICE;
+
+    if (effortOk) {
+      if (inPrev) {
+        add(prevTotals, r, px);
+        prevNetSaved += px.net;
+        prevSessions.add(r.session);
+        prevByDay.set(r.day, (prevByDay.get(r.day) ?? 0) + r.cost);
+      }
+    }
+    if (r.day.startsWith(monthKey)) planDays[Number(r.day.slice(8, 10)) - 1] += r.cost;
+
+    if (!inRange) continue;
 
     // Collect the available-effort set from everything in the date window,
     // BEFORE the effort filter narrows what actually gets aggregated — so the
     // filter chip row always reflects what's selectable for this window.
     availableEfforts.add(r.effort);
-    if (effortFilter && r.effort !== effortFilter) continue;
+    if (!effortOk) continue;
 
-    add(totals, r);
+    add(totals, r, px);
+    netSaved += px.net;
+    add(turns[turnBucketIndex(pos)], r, px);
+    addTok(tokTotal, px);
+    const dt = new Date(r.ts);
+    const hr = dt.getHours();
+    const wd = dt.getDay();
 
     let d = byDay.get(r.day);
     if (!d) byDay.set(r.day, (d = empty()));
-    add(d, r);
+    add(d, r, px);
+
+    let dh = dayHours.get(r.day);
+    if (!dh) dayHours.set(r.day, (dh = Array<number>(24).fill(0)));
+    dh[hr] += r.cost;
+    let dtk = dayTok.get(r.day);
+    if (!dtk) dayTok.set(r.day, (dtk = emptyTok()));
+    addTok(dtk, px);
+    let ds = daySessions.get(r.day);
+    if (!ds) daySessions.set(r.day, (ds = new Map()));
+    let dss = ds.get(r.session);
+    if (!dss) ds.set(r.session, (dss = { session: r.session, project: r.project, cost: 0, messages: 0 }));
+    dss.cost += r.cost;
+    dss.messages += 1;
 
     let m = byModel.get(r.model);
     if (!m) byModel.set(r.model, (m = empty()));
-    add(m, r);
+    add(m, r, px);
 
     let me = modelEffort.get(r.model);
     if (!me) modelEffort.set(r.model, (me = new Map()));
     let meb = me.get(r.effort);
     if (!meb) me.set(r.effort, (meb = empty()));
-    add(meb, r);
+    add(meb, r, px);
 
     let eb = byEffort.get(r.effort);
     if (!eb) byEffort.set(r.effort, (eb = empty()));
-    add(eb, r);
+    add(eb, r, px);
 
     let dm = dayModel.get(r.day);
     if (!dm) dayModel.set(r.day, (dm = new Map()));
     let dmb = dm.get(r.model);
     if (!dmb) dm.set(r.model, (dmb = empty()));
-    add(dmb, r);
+    add(dmb, r, px);
 
-    const dt = new Date(r.ts);
-    const hr = dt.getHours();
-    const wd = dt.getDay();
-    add(byHour[hr], r);
-    add(byWeekday[wd], r);
+    add(byHour[hr], r, px);
+    add(byWeekday[wd], r, px);
     heatmap[wd][hr] += r.cost;
 
     let s = sessions.get(r.session);
@@ -203,27 +419,31 @@ export function summarize(
         r.session,
         (s = { project: r.project, day: r.day, firstTs: r.ts, lastTs: r.ts, bucket: empty(), models: new Map() }),
       );
-    add(s.bucket, r);
+    add(s.bucket, r, px);
     s.day = r.day;
     if (r.ts < s.firstTs) s.firstTs = r.ts;
     if (r.ts > s.lastTs) s.lastTs = r.ts;
     let sm = s.models.get(r.model);
     if (!sm) s.models.set(r.model, (sm = empty()));
-    add(sm, r);
+    add(sm, r, px);
 
     let p = projects.get(r.project);
-    if (!p) projects.set(r.project, (p = { bucket: empty(), sessions: new Set(), models: new Map(), byDay: new Map() }));
-    add(p.bucket, r);
+    if (!p) projects.set(r.project, (p = { bucket: empty(), sessions: new Set(), models: new Map(), byDay: new Map(), dayModels: new Map() }));
+    add(p.bucket, r, px);
     p.sessions.add(r.session);
     let pm = p.models.get(r.model);
     if (!pm) p.models.set(r.model, (pm = empty()));
-    add(pm, r);
+    add(pm, r, px);
     let pd = p.byDay.get(r.day);
     if (!pd) p.byDay.set(r.day, (pd = empty()));
-    add(pd, r);
+    add(pd, r, px);
+    let pdm = p.dayModels.get(r.day);
+    if (!pdm) p.dayModels.set(r.day, (pdm = new Map()));
+    pdm.set(r.model, (pdm.get(r.model) ?? 0) + r.cost);
   }
 
   totals.sessions = sessions.size;
+  prevTotals.sessions = prevSessions.size;
 
   const allSessions: SessionRow[] = [...sessions.entries()]
     .map(([session, s]) => {
@@ -256,7 +476,15 @@ export function summarize(
       sessions: p.sessions.size,
       ...p.bucket,
       models: [...p.models.entries()].map(([model, b]) => ({ model, ...b })).sort((a, b) => b.cost - a.cost),
-      byDay: [...p.byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([day, b]) => ({ day, ...b })),
+      byDay: [...p.byDay.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([day, b]) => ({
+          day,
+          ...b,
+          models: [...(p.dayModels.get(day)?.entries() ?? [])]
+            .map(([model, cost]) => ({ model, cost }))
+            .sort((x, y) => y.cost - x.cost),
+        })),
     }))
     .sort((a, b) => b.cost - a.cost);
 
@@ -288,12 +516,22 @@ export function summarize(
     to,
     builtAt: meta.builtAt,
     parseMs: meta.parseMs,
+    cache: meta.cache,
     generatedAt: now,
     totals,
     byDay: [...byDay.entries()]
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([day, b]) => ({ day, ...b, models: dayModelBreakdown.get(day) ?? [] })),
+      .map(([day, b]) => ({
+        day,
+        ...b,
+        models: dayModelBreakdown.get(day) ?? [],
+        sessions: daySessions.get(day)?.size ?? 0,
+        hours: dayHours.get(day) ?? Array<number>(24).fill(0),
+        tokenCost: finishTok(dayTok.get(day) ?? emptyTok(), b.cost),
+        topSessions: [...(daySessions.get(day)?.values() ?? [])].sort((x, y) => y.cost - x.cost).slice(0, 5),
+      })),
     byProject,
+    allModels: [...allModelCost.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([m]) => m),
     byModel: [...byModel.entries()]
       .map(([model, b]) => {
         const efforts = modelEffort.get(model);
@@ -316,5 +554,23 @@ export function summarize(
     byHour: byHour.map((b, hour) => ({ hour, ...b })),
     byWeekday: byWeekday.map((b, weekday) => ({ weekday, ...b })),
     heatmap,
+    turnBuckets: TURN_BUCKETS.map((t, i) => ({ ...t, ...turns[i] })),
+    cacheNetSaved: netSaved,
+    tokenCost: finishTok(tokTotal, totals.cost),
+    previous: hasPrev
+      ? {
+          from: prevFrom,
+          to: prevEnd - 1,
+          partial,
+          totals: prevTotals,
+          cacheNetSaved: prevNetSaved,
+          byDay: [...prevByDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([day, cost]) => ({ day, cost })),
+        }
+      : null,
+    planMonth: {
+      month: monthKey,
+      daysInMonth,
+      byDay: planDays.map((cost, i) => ({ day: `${monthKey}-${String(i + 1).padStart(2, "0")}`, cost })),
+    },
   };
 }

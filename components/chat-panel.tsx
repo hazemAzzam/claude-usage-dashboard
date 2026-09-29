@@ -1,14 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+import type { ChatState } from "@/hooks/use-chat";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-
-interface Msg {
-  role: "user" | "assistant";
-  content: string;
-}
 
 const SUGGESTIONS = [
   "Which projects cost me the most, and why?",
@@ -17,71 +13,15 @@ const SUGGESTIONS = [
   "Is my cache-read share good?",
 ];
 
-export function ChatPanel() {
-  const [messages, setMessages] = useState<Msg[]>([]);
-  const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+// Presentational: history/streaming state lives in useChat (owned by
+// DashboardProvider) so it survives the sheet closing.
+export function ChatPanel({ chat }: { chat: ChatState }) {
+  const { messages, input, setInput, busy, error, send, clear } = chat;
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
-
-  async function send(text: string) {
-    const content = text.trim();
-    if (!content || busy) return;
-    setError(null);
-    setInput("");
-
-    const next: Msg[] = [...messages, { role: "user", content }];
-    setMessages([...next, { role: "assistant", content: "" }]);
-    setBusy(true);
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next }),
-      });
-
-      if (!res.ok || !res.body) {
-        let detail = `Request failed (${res.status})`;
-        try {
-          const j = await res.json();
-          if (j?.error) detail = j.error;
-        } catch {
-          /* non-JSON */
-        }
-        throw new Error(detail);
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        setMessages((prev) => {
-          const copy = [...prev];
-          const last = copy[copy.length - 1];
-          if (last?.role === "assistant") copy[copy.length - 1] = { ...last, content: last.content + chunk };
-          return copy;
-        });
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Something went wrong";
-      setError(msg);
-      // drop the empty assistant bubble on error
-      setMessages((prev) => {
-        const copy = [...prev];
-        if (copy[copy.length - 1]?.role === "assistant" && !copy[copy.length - 1].content) copy.pop();
-        return copy;
-      });
-    } finally {
-      setBusy(false);
-    }
-  }
 
   return (
     <Card>
@@ -93,7 +33,7 @@ export function ChatPanel() {
           </p>
         </div>
         {messages.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={() => setMessages([])} disabled={busy}>
+          <Button variant="ghost" size="sm" onClick={clear} disabled={busy}>
             Clear
           </Button>
         )}

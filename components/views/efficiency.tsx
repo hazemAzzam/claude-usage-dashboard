@@ -1,185 +1,123 @@
 "use client";
 
-import type { EffortBucket, ModelBucket, Summary } from "@/lib/usage";
-import { EFFORT_LABEL } from "@/lib/effort";
-import { cacheShare, num, tokens, usdExact, usdFine } from "@/lib/format";
+import type { Summary } from "@/lib/usage";
+import { num } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableRow, TableHeader } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Empty, Kpi, MiniStat, shortModel, SortHeader } from "@/components/stats";
-import { EfficiencyBars } from "@/components/charts";
-import { useEfficiencyView, outputShare, outputPerDollar } from "@/hooks/use-efficiency-view";
+import { Table, TableBody, TableCell, TableRow, TableHeader, TableHead } from "@/components/ui/table";
+import { Empty, Kpi } from "@/components/stats";
+import { useEfficiencyView, type EfficiencyMetrics, type EfficiencyModelRow } from "@/hooks/use-efficiency-view";
 
 export function EfficiencyView({ data }: { data: Summary }) {
-  const { totals, baseline, models, isModelOpen, toggleModel, projectRows, sortKey, dir, toggleSort } =
-    useEfficiencyView(data);
+  const { kpis, modelRows, grid, gridNote, isModelOpen, toggleModel } = useEfficiencyView(data);
 
-  if (!totals.sessions) return <Empty />;
+  if (!data.totals.sessions) return <Empty />;
 
   return (
     <div className="space-y-4">
-      {/* Headline efficiency KPIs */}
-      <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Kpi
-          label="Output share"
-          value={`${outputShare(totals).toFixed(0)}%`}
-          sub="generated vs. fed context"
-          hint={outputShare(totals)}
-        />
-        <Kpi
-          label="Cache-read share"
-          value={`${cacheShare(totals).toFixed(0)}%`}
-          sub="input served from cache"
-          hint={cacheShare(totals)}
-        />
-        <Kpi
-          label="Output per $"
-          value={`${num(Math.round(baseline))}`}
-          sub="tokens per dollar"
-        />
-        <Kpi
-          label="Cost per session"
-          value={usdExact(totals.sessions ? totals.cost / totals.sessions : 0)}
-          sub={`${num(totals.sessions)} sessions`}
-        />
+      <p className="text-sm text-muted-foreground">How much useful output each dollar buys, by model and effort level.</p>
+
+      <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        {kpis.map((k) => (
+          <Kpi key={k.key} label={k.label} value={k.value} sub={k.sub} />
+        ))}
       </section>
 
-      {/* Secondary stats */}
-      <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <MiniStat
-          label="Cost / message"
-          value={usdExact(totals.messages ? totals.cost / totals.messages : 0)}
-          hint={`${num(totals.messages)} messages`}
-        />
-        <MiniStat
-          label="Avg output / session"
-          value={tokens(Math.round(totals.sessions ? totals.output / totals.sessions : 0))}
-        />
-        <MiniStat
-          label="Avg context / session"
-          value={tokens(Math.round(totals.sessions ? (totals.input + totals.cacheRead) / totals.sessions : 0))}
-          hint="fresh input + cache read"
-        />
-        <MiniStat label="Total output" value={tokens(totals.output)} />
-      </section>
-
-      {/* What the numbers mean */}
-      <Card>
-        <CardContent className="pt-6 text-xs leading-relaxed text-muted-foreground">
-          <span className="font-medium text-foreground">How to read this:</span>{" "}
-          <span className="text-foreground">Output share</span> is how much of your token flow the model
-          actually generates (higher = less context overhead).{" "}
-          <span className="text-foreground">Cache-read share</span> is how much input is reused cheaply from
-          cache instead of re-sent at full price (higher = far cheaper sessions).{" "}
-          <span className="text-foreground">Output&nbsp;per&nbsp;$</span> is the bottom line — the same spend
-          buying more output means better utilization. The project table below shows where you&apos;re efficient
-          and where context overhead is dragging you down.
-        </CardContent>
-      </Card>
-
-      {/* Output per dollar by project */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Output per $ by project</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <EfficiencyBars data={data.byProject} />
-        </CardContent>
-      </Card>
-
-      {/* Per-model efficiency */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Efficiency by model</CardTitle>
+          <CardTitle className="text-sm font-medium">By model</CardTitle>
+          <p className="text-xs text-muted-foreground">Click a model to break it down by effort level</p>
         </CardHeader>
         <CardContent>
           <div className="overflow-auto rounded-md border">
             <Table>
               <TableHeader className="bg-card">
                 <TableRow>
-                  <TableCell className="font-medium">Model</TableCell>
-                  <TableCell className="text-right font-medium">Msgs</TableCell>
-                  <TableCell className="text-right font-medium">Cost</TableCell>
-                  <TableCell className="text-right font-medium">Cost / msg</TableCell>
-                  <TableCell className="text-right font-medium">Output</TableCell>
-                  <TableCell className="text-right font-medium">Output / msg</TableCell>
-                  <TableCell className="text-right font-medium">Output / $</TableCell>
-                  <TableCell className="text-right font-medium">Output %</TableCell>
+                  <TableHead>Model</TableHead>
+                  <TableHead className="text-right">Msgs</TableHead>
+                  <TableHead className="text-right">Output share</TableHead>
+                  <TableHead className="text-right">Cache share</TableHead>
+                  <TableHead className="text-right">Output / $</TableHead>
+                  <TableHead className="text-right">Cost / msg</TableHead>
+                  <TableHead className="text-right">Cost</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {models.map((m) => (
-                  <ModelRow
-                    key={m.model}
-                    m={m}
-                    open={isModelOpen(m.model)}
-                    onToggle={() => toggleModel(m.model)}
-                  />
+                {modelRows.map((m) => (
+                  <ModelRow key={m.model} m={m} open={isModelOpen(m.model)} onToggle={() => toggleModel(m.model)} />
                 ))}
               </TableBody>
             </Table>
           </div>
           <p className="mt-2 text-[11px] text-muted-foreground">
-            Per-token price is the same at every effort level; cost/msg differs because higher
-            effort produces more output per message.
+            Per-token price is the same at every effort level; cost/msg differs because higher effort produces more output per message.
           </p>
         </CardContent>
       </Card>
 
-      {/* Per-project efficiency (sortable) */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Efficiency by project</CardTitle>
+          <CardTitle className="text-sm font-medium">Effort × model</CardTitle>
+          <p className="text-xs text-muted-foreground">Cost per message · brighter = pricier</p>
         </CardHeader>
-        <CardContent>
-          <div className="max-h-[640px] overflow-auto rounded-md border">
-            <Table>
-              <TableHeader className="sticky top-0 z-10 bg-card">
-                <TableRow>
-                  <SortHeader label="Project" active={sortKey === "project"} dir={dir} onClick={() => toggleSort("project")} />
-                  <SortHeader label="Sessions" active={sortKey === "sessions"} dir={dir} onClick={() => toggleSort("sessions")} alignRight />
-                  <SortHeader label="Cost" active={sortKey === "cost"} dir={dir} onClick={() => toggleSort("cost")} alignRight />
-                  <SortHeader label="Output" active={sortKey === "output"} dir={dir} onClick={() => toggleSort("output")} alignRight />
-                  <SortHeader label="Output / $" active={sortKey === "perDollar"} dir={dir} onClick={() => toggleSort("perDollar")} alignRight />
-                  <SortHeader label="Output %" active={sortKey === "outShare"} dir={dir} onClick={() => toggleSort("outShare")} alignRight />
-                  <SortHeader label="Cache rd %" active={sortKey === "cacheShare"} dir={dir} onClick={() => toggleSort("cacheShare")} alignRight />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {projectRows.map(({ row, perDollar, outShare, cacheShare: cShare }) => (
-                  <TableRow key={row.project}>
-                    <TableCell className="max-w-[220px] truncate font-medium" title={row.project}>{row.project}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">{num(row.sessions)}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">{usdExact(row.cost)}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(row.output)}</TableCell>
-                    <TableCell
-                      className={`text-right font-medium tabular-nums ${
-                        perDollar >= baseline ? "text-emerald-500" : "text-amber-500"
-                      }`}
-                    >
-                      {num(Math.round(perDollar))}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">{outShare.toFixed(0)}%</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">{cShare.toFixed(0)}%</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            Output / $ is colored against your overall average ({num(Math.round(baseline))} tok/$):{" "}
-            <span className="text-emerald-500">green</span> = above,{" "}
-            <span className="text-amber-500">amber</span> = below.
-          </p>
+        <CardContent className="space-y-3">
+          {grid.efforts.length ? (
+            <div className="overflow-auto">
+              <table className="w-full border-separate border-spacing-1 text-sm">
+                <thead>
+                  <tr>
+                    <th />
+                    {grid.models.map((m) => (
+                      <th key={m.model} className="px-2 py-1 text-xs font-medium text-muted-foreground">
+                        {m.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {grid.efforts.map((e, ri) => (
+                    <tr key={e.effort}>
+                      <th className="pr-3 text-right text-xs font-medium text-muted-foreground">{e.label}</th>
+                      {grid.cells[ri].map((c, ci) => (
+                        <td
+                          key={grid.models[ci].model}
+                          title={c.tip}
+                          className={`rounded-md px-2 py-2 text-center font-mono tabular-nums${c.strong ? " text-primary-foreground" : ""}`}
+                          style={{ background: c.alpha > 0 ? `oklch(var(--primary) / ${c.alpha})` : "oklch(var(--divider))" }}
+                        >
+                          {c.label}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <Empty />
+          )}
+          <p className="border-t pt-3 text-sm text-muted-foreground">{gridNote}</p>
         </CardContent>
       </Card>
     </div>
   );
 }
 
-function ModelRow({ m, open, onToggle }: { m: ModelBucket; open: boolean; onToggle: () => void }) {
-  const efforts: EffortBucket[] = m.efforts ?? [];
-  const expandable = efforts.length > 1;
+function MetricCells({ m, muted }: { m: EfficiencyMetrics; muted?: boolean }) {
+  const tone = muted ? "text-muted-foreground" : "";
+  return (
+    <>
+      <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{num(m.messages)}</TableCell>
+      <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{m.outShareLabel}</TableCell>
+      <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{m.cacheShareLabel}</TableCell>
+      <TableCell className={`text-right font-mono tabular-nums ${tone}`}>{m.perDollarLabel}</TableCell>
+      <TableCell className={`text-right font-mono tabular-nums ${tone}`}>{m.costPerMsgLabel}</TableCell>
+      <TableCell className={`text-right font-mono tabular-nums ${muted ? "text-muted-foreground" : "font-medium"}`}>{m.costLabel}</TableCell>
+    </>
+  );
+}
+
+function ModelRow({ m, open, onToggle }: { m: EfficiencyModelRow; open: boolean; onToggle: () => void }) {
+  const expandable = m.efforts.length > 1;
   return (
     <>
       <TableRow className={expandable ? "cursor-pointer" : undefined} onClick={expandable ? onToggle : undefined}>
@@ -201,45 +139,18 @@ function ModelRow({ m, open, onToggle }: { m: ModelBucket; open: boolean; onTogg
             ) : (
               <span className="inline-block w-3" />
             )}
-            {shortModel(m.model)}
+            <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: m.color }} aria-hidden />
+            {m.label}
           </span>
         </TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">{num(m.messages)}</TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">{usdExact(m.cost)}</TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">
-          {usdFine(m.messages ? m.cost / m.messages : 0)}
-        </TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(m.output)}</TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">
-          {num(Math.round(m.messages ? m.output / m.messages : 0))}
-        </TableCell>
-        <TableCell className="text-right font-medium tabular-nums">
-          {num(Math.round(outputPerDollar(m.cost, m.output)))}
-        </TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">{outputShare(m).toFixed(0)}%</TableCell>
+        <MetricCells m={m} />
       </TableRow>
       {open &&
         expandable &&
-        efforts.map((e) => (
-          <TableRow key={e.effort} className="bg-muted/30 hover:bg-muted/30 text-xs">
-            <TableCell className="pl-8">
-              <Badge variant="outline" className="font-normal text-muted-foreground">
-                {EFFORT_LABEL[e.effort]}
-              </Badge>
-            </TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">{num(e.messages)}</TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">{usdExact(e.cost)}</TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">
-              {usdFine(e.messages ? e.cost / e.messages : 0)}
-            </TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(e.output)}</TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">
-              {num(Math.round(e.messages ? e.output / e.messages : 0))}
-            </TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">
-              {num(Math.round(outputPerDollar(e.cost, e.output)))}
-            </TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">{outputShare(e).toFixed(0)}%</TableCell>
+        m.efforts.map((e) => (
+          <TableRow key={e.effort} className="bg-row-detail text-xs hover:bg-row-detail">
+            <TableCell className="pl-10 text-muted-foreground">{e.label}</TableCell>
+            <MetricCells m={e} muted />
           </TableRow>
         ))}
     </>

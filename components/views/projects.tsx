@@ -1,150 +1,162 @@
 "use client";
 
-import type { ProjectRow, SessionRow, Summary } from "@/lib/usage";
-import { num, tokens, usd, usdExact } from "@/lib/format";
-import { CostOverTime, ModelSplit, TokenBars, PALETTE } from "@/components/charts";
+import Link from "next/link";
+import type { Summary } from "@/lib/usage";
+import { num } from "@/lib/format";
+import { DailyStackedCost, ModelLegend } from "@/components/charts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { DataTable, Empty, MiniStat, shortModel } from "@/components/stats";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Empty, MiniStat } from "@/components/stats";
 import { useProjectsView } from "@/hooks/use-projects-view";
 
 export function ProjectsView({ data }: { data: Summary }) {
-  const { projects, setSelected, active, maxCost, recentSessions } = useProjectsView(data);
+  const { list, detail, activeProject, setSelected, query, setQuery, countLabel, total } = useProjectsView(data);
 
-  if (!projects.length) return <Empty />;
+  if (!total) return <Empty />;
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[300px_1fr]">
       <Card className="h-fit">
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Projects ({projects.length})</CardTitle>
+        <CardHeader className="gap-2">
+          <div className="flex items-baseline justify-between">
+            <CardTitle className="text-sm font-medium">Projects</CardTitle>
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">{countLabel}</span>
+          </div>
+          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter projects…" aria-label="Filter projects" className="h-8" />
         </CardHeader>
         <CardContent className="px-2">
-          <ul className="max-h-[680px] space-y-0.5 overflow-auto">
-            {projects.map((p, i) => {
-              const on = p.project === active?.project;
-              return (
+          {list.length ? (
+            <ul className="max-h-[680px] space-y-0.5 overflow-auto" aria-label="Projects">
+              {list.map((p) => (
                 <li key={p.project}>
                   <button
                     type="button"
+                    aria-pressed={p.project === activeProject}
                     onClick={() => setSelected(p.project)}
-                    className={`w-full rounded-md px-2 py-2 text-left transition-colors ${
-                      on ? "bg-accent" : "hover:bg-accent/50"
-                    }`}
+                    className={`w-full rounded-md px-2 py-2 text-left transition-colors ${p.project === activeProject ? "bg-accent" : "hover:bg-accent/50"}`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-sm font-medium">{p.project}</span>
-                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{usd(p.cost)}</span>
+                      <span className="shrink-0 text-xs font-mono tabular-nums text-muted-foreground">{p.costLabel}</span>
                     </div>
                     <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full rounded-full"
-                        style={{ width: `${(p.cost / maxCost) * 100}%`, background: PALETTE[i % PALETTE.length] }}
-                      />
+                      <div className="h-full rounded-full bg-primary/70" style={{ width: `${p.widthPct}%` }} />
                     </div>
+                    <div className="mt-1 font-mono text-[11px] tabular-nums text-muted-foreground">{p.sessionsLabel}</div>
                   </button>
                 </li>
-              );
-            })}
-          </ul>
+              ))}
+            </ul>
+          ) : (
+            <p className="px-2 py-4 text-center text-xs text-muted-foreground">No projects match</p>
+          )}
         </CardContent>
       </Card>
 
-      {active && <ProjectDetail project={active} recentSessions={recentSessions} />}
-    </div>
-  );
-}
+      {detail && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-semibold tracking-tight">{detail.project}</h2>
+            <span className="font-mono text-sm tabular-nums text-muted-foreground">{detail.shareLabel}</span>
+          </div>
 
-function ProjectDetail({ project, recentSessions }: { project: ProjectRow; recentSessions: SessionRow[] }) {
-  const totalIn = project.input + project.cacheCreate + project.cacheRead;
-  const cacheShare = totalIn > 0 ? (project.cacheRead / totalIn) * 100 : 0;
-  const avgSession = project.sessions ? project.cost / project.sessions : 0;
+          <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            {detail.stats.map((s) => (
+              <MiniStat key={s.label} label={s.label} value={s.value} />
+            ))}
+          </section>
 
-  return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold tracking-tight">{project.project}</h2>
-        <p className="text-sm text-muted-foreground">
-          {usdExact(project.cost)} · {num(project.sessions)} sessions · {num(project.messages)} messages ·{" "}
-          {tokens(totalIn + project.output)} tokens
-        </p>
-      </div>
+          <Card>
+            <CardHeader className="gap-2">
+              <CardTitle className="text-sm font-medium">Cost over time</CardTitle>
+              <p className="text-xs text-muted-foreground">USD per day, stacked by model</p>
+              <ModelLegend items={detail.legend} />
+            </CardHeader>
+            <CardContent>
+              {detail.days.length ? (
+                <DailyStackedCost rows={detail.days} models={detail.legend} label={`Daily cost of ${detail.project} stacked by model`} />
+              ) : (
+                <Empty />
+              )}
+            </CardContent>
+          </Card>
 
-      <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <MiniStat label="Total cost" value={usdExact(project.cost)} />
-        <MiniStat label="Avg / session" value={usdExact(avgSession)} />
-        <MiniStat label="Cache read share" value={`${cacheShare.toFixed(0)}%`} />
-        <MiniStat label="Output tokens" value={tokens(project.output)} />
-      </section>
-
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Cost over time</CardTitle>
-          </CardHeader>
-          <CardContent>{project.byDay.length ? <CostOverTime data={project.byDay} /> : <Empty />}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Models used</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {project.models.some((m) => m.cost > 0) ? (
-              <>
-                <ModelSplit data={project.models} />
-                <ul className="mt-2 space-y-1.5">
-                  {project.models
-                    .filter((m) => m.cost > 0)
-                    .map((m, i) => (
-                      <li key={m.model} className="flex items-center justify-between text-xs">
-                        <span className="flex items-center gap-2">
-                          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: PALETTE[i % PALETTE.length] }} />
-                          {shortModel(m.model)}
-                        </span>
-                        <span className="tabular-nums text-muted-foreground">{usd(m.cost)}</span>
-                      </li>
+          <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">By model</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Model</TableHead>
+                      <TableHead className="text-right">Msgs</TableHead>
+                      <TableHead className="text-right">Cost</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {detail.byModel.map((m) => (
+                      <TableRow key={m.model}>
+                        <TableCell>
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: m.color }} aria-hidden />
+                            {m.label}
+                          </span>
+                          <div className="mt-1 h-1 overflow-hidden rounded-full bg-muted">
+                            <div className="h-full rounded-full" style={{ width: `${m.widthPct}%`, background: m.color }} />
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{num(m.messages)}</TableCell>
+                        <TableCell className="text-right font-mono tabular-nums">{m.costLabel}</TableCell>
+                      </TableRow>
                     ))}
-                </ul>
-              </>
-            ) : (
-              <Empty />
-            )}
-          </CardContent>
-        </Card>
-      </section>
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
 
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Token breakdown</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TokenBars totals={project} />
-          </CardContent>
-        </Card>
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">
-              Sessions {project.sessions > 15 ? `(latest 15 of ${num(project.sessions)})` : `(${num(project.sessions)})`}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DataTable
-              head={["Date", "Model", "Msgs", "Tokens", "Cost"]}
-              rows={recentSessions.map((s) => [
-                s.day,
-                <Badge key={s.session} variant="secondary" className="font-normal">
-                  {shortModel(s.model)}
-                </Badge>,
-                num(s.messages),
-                tokens(s.input + s.output + s.cacheCreate + s.cacheRead),
-                usdExact(s.cost),
-              ])}
-              alignRight={[2, 3, 4]}
-            />
-          </CardContent>
-        </Card>
-      </section>
+            <Card>
+              <CardHeader className="flex-row items-baseline justify-between space-y-0">
+                <CardTitle className="text-sm font-medium">{detail.sessionsTitle}</CardTitle>
+                <Link href="/sessions" className="text-xs text-muted-foreground hover:text-foreground">
+                  Open in Sessions
+                </Link>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Session</TableHead>
+                      <TableHead>Day</TableHead>
+                      <TableHead>Model</TableHead>
+                      <TableHead className="text-right">Msgs</TableHead>
+                      <TableHead className="text-right">Cost</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {detail.sessions.map((s) => (
+                      <TableRow key={s.session}>
+                        <TableCell className="font-mono text-xs text-muted-foreground">{s.id}</TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{s.day}</TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: s.color }} aria-hidden />
+                            {s.label}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{num(s.messages)}</TableCell>
+                        <TableCell className="text-right font-mono tabular-nums">{s.costLabel}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

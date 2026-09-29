@@ -11,6 +11,14 @@ updated via a persistent cache (in-memory hot copy TTL 5s; see "Parse cache").
 - **`lib/effort.ts`** and **`lib/pricing.ts`** are pure, single sources of truth
   — no `node:*` imports, safe to import from client components. `lib/effort.ts`
   owns the `Effort` type/order/labels; `lib/pricing.ts` owns per-model $/1M rates.
+- **`lib/stats.ts`** — client-safe pure numeric helpers (`pctDelta`,
+  `movingAverage`, `cumulative`, `median`, `shareOf`, `linearProjection`,
+  `fillDays`, ...); views/hooks use these rather than inline arithmetic.
+- **`lib/derive.ts`** — client-safe pure derivations shared by more than one
+  view hook or by chart prop types: `deriveEffortCostPerMsg`, `daySpan` (the
+  day range every per-day series is densified over), `zeroDay`,
+  `shortSessionId`, and the `DailyByModelRow` / `DailyModelLegend` /
+  `EffortCostRow` types. Type-only imports from `lib/usage.ts`.
 - **`lib/usage-cache.ts`** is server-only and owns transcript I/O: walking
   `~/.claude/projects/**/*.jsonl`, the persistent per-file parse cache (see
   "Parse cache" below), and merging cached lines into `UsageRecord[]`.
@@ -22,6 +30,10 @@ updated via a persistent cache (in-memory hot copy TTL 5s; see "Parse cache").
   `lib/usage-cache.ts` with `import type` — type-only imports are fully
   erased at compile time, so this never creates a runtime circular
   dependency between the two modules despite the "cross" import direction.
+- **`Summary.cache`** (`"warm" | "cold" | "rebuilt"`) reports how much parsing
+  the load behind a response did. `cacheState(stats, ms)` in `lib/usage.ts`
+  derives it from the existing `SweepStats`; the route passes it through
+  `summarize()`'s `meta`. It is display-only (sidebar parse card).
 - **API routes** (`app/api/usage`, `app/api/chat`) are thin adapters: parse query
   params, call into `lib/`, return JSON or a stream. No aggregation logic lives
   in the route handlers themselves.
@@ -34,9 +46,53 @@ updated via a persistent cache (in-memory hot copy TTL 5s; see "Parse cache").
 
 Mirrors the server-side split: hooks own state/fetching/derivation, components
 are presentational (props/hook result in, JSX out — no `fetch`, no `useEffect`
-for derived data, no inline sorting/aggregation in JSX). `app/page.tsx` is pure
-composition: it calls `useDashboardFilters` + `useUsageSummary` and renders the
-active view.
+for derived data, no inline sorting/aggregation/string-building in JSX).
+Small derivations a shell component needs (effort items with cost labels,
+preset day counts, breadcrumb title, sidebar counts) are exported pure
+functions in the hook files, not logic inside the `.tsx`.
+
+Routing is Next.js App Router with a route group: **`app/(dashboard)/layout.tsx`**
+is a **server** layout that only reads the `sidebar_state` cookie (so the
+collapsed/expanded state persists across reloads) and renders the client
+`components/shell/dashboard-frame.tsx`, which is the composition — `TooltipProvider` ›
+`DashboardProvider` › `SidebarProvider` › `AppSidebar` + `SidebarInset`
+(`TopBar`, error banner, first-load skeleton / dimmed-on-refetch children,
+footer) plus the chat `Sheet`. Each view is its own tiny route
+(`app/(dashboard)/{page,sessions,projects,daily,compare,efficiency,patterns}/page.tsx`)
+that calls `useLoadedDashboard()` and renders one existing view from
+`components/views/*` (`key={filters.rangeKey}` on Sessions/Projects/Compare so
+per-range view state resets). `app/page.tsx` no longer exists; `app/layout.tsx`
+only owns `<html>`/`<body>`/fonts/metadata. There are no URL search params —
+filters live in memory only.
+
+- **`hooks/use-dashboard.tsx`** — `DashboardProvider` / `useDashboard()`
+  compose `useDashboardFilters` + `useUsageSummary` (both unchanged) plus the
+  chat sheet's open state and chat history (`hooks/use-chat.ts` — held here
+  because the Sheet unmounts its content when closed; the in-flight stream is
+  aborted on unmount), and expose `{ filters, data, error, loading,
+  refresh, effortOpts, chatOpen, setChatOpen }`. The provider lives in the
+  layout, *above* the pages, so navigating between routes never refetches
+  `/api/usage` — only a filter change or Refresh does.
+  `useLoadedDashboard()` is the page-facing variant that narrows `data` to
+  non-null (the layout only renders children once a Summary exists). The file
+  also exports the shell's pure derivations: `navCounts`, `effortItems`
+  (effort filter items with per-level cost labels), `parseStats` (card + footer strings), `isNavActive`, `effortLabel`, `viewTitle`.
+  `rangeLabel` is a placeholder until mounted (`hooks/use-mounted.ts`) so the
+  client-clock default range never causes a hydration mismatch.
+- **`components/shell/*`** — mirrors shadcn's `dashboard-01` sidebar block
+  (`Sidebar variant="inset" collapsible="icon"`). `app-sidebar.tsx` only
+  composes: `SidebarHeader` (logo `SidebarMenuButton`, icon + "Claude Usage") ›
+  `SidebarContent` [`nav-main.tsx` (primary "Ask Claude" row + the seven view
+  links with `SidebarMenuBadge` counts; the only `usePathname()` use, for
+  active state + `aria-current`), `nav-effort.tsx` (Effort filter group with
+  costs; icon mode shows one filter button), `nav-secondary.tsx` (Refresh,
+  `mt-auto`, spinner/disabled while loading)] › `SidebarFooter`
+  (`nav-source.tsx`: NavUser-shaped data-source row, `~/.claude/projects` +
+  `ParseStats.source` string, no fake user). `top-bar.tsx` is the block's
+  site-header (trigger, vertical `Separator` keeping the `self-center` fix,
+  breadcrumb, preset segmented control, date picker, Ask Claude),
+  `date-range-picker.tsx` (popover: presets with day counts, two-month range
+  calendar, Cancel/Apply). All presentational.
 
 - **`hooks/use-usage-summary.ts`** — owns fetching `/api/usage` for
   `{start, end, effort}`, in-flight request cancellation, loading/error state,
@@ -51,7 +107,7 @@ active view.
   whether the pending run is a manual refresh (sends `refresh=1`) vs. a
   filter-driven reload. `data` is never cleared while a request is in
   flight — the previous result stays on screen through a filter change or a
-  refresh, and `app/page.tsx` dims the view on `loading` rather than
+  refresh, and the dashboard layout dims the view on `loading` rather than
   swapping back to the skeleton.
 - **`hooks/use-dashboard-filters.ts`** — date range + quick presets + effort
   selection state, plus the derived `rangeKey` (`${start}_${end}_${effort}`)
@@ -61,34 +117,116 @@ active view.
   mount — presets like "Today"/"This month" depend on the current date, so
   precomputing them once would go stale after midnight, and calling
   `new Date()` during render is impure regardless. Which preset is active is
-  tracked as its own `selectedPreset` key (set by `selectPreset`, cleared by
-  direct date-input edits) rather than recomputed by re-calling `getRange()`
+  tracked as its own `selectedPreset` key (set by `selectPreset`, cleared when
+  a hand-picked popover range is applied via `applyRange`) rather than recomputed by re-calling `getRange()`
   at render to compare — that would reintroduce the same staleness and
   render-impurity problem for the highlight. Also exports a plain
   `effortOptions(data, effort)` helper (not a hook) that keeps the currently
-  selected effort visible as a chip even if the latest response's
+  selected effort visible in the sidebar list even if the latest response's
   `availableEfforts` no longer includes it; it's a separate function rather
   than folded into the hook to avoid a circular dependency (`useUsageSummary`
   needs `range`/`effort` from this hook, so this hook can't also depend on
   `useUsageSummary`'s `data`).
+- **`useDateRangeDraft`** (in `hooks/use-dashboard-filters.ts`) — draft state
+  for the date popover: the draft range, visible month, preset rows with
+  "Nd" hints, and `apply`/`cancel`. Nothing reaches the filters until Apply.
+  Preset day counts are computed in the open handler (they call each preset's
+  `getRange()`, which reads the current date), never during render. Its pure
+  helpers (`parseKey`, `dayCount`, `draftLabel`, `draftHint`, `draftToValue`,
+  `presetRows`, `segmentPresets`) are exported. `applyRange(value, presetKey)`
+  on the filters hook commits a popover selection and keeps the preset
+  highlight if it was an untouched preset pick.
 - **`hooks/use-sortable.ts`** / **`hooks/use-expandable.ts`** — generic sort
   key/dir/toggle and open-row-id-set toggle, replacing logic that used to be
   duplicated across the Sessions/Daily/Efficiency views.
+- **`hooks/use-overview-view.ts`** — the Overview's derivations, each an
+  exported pure function (unit-tested in `hooks/__tests__/`) that
+  `useOverviewView(summary, planPrice)` memoises: `deriveKpis` (value, delta vs
+  `Summary.previous`, tone, per-day spark), `deriveTurnCost` (cost/message per
+  `turnBuckets` bucket + the turns-151+ multiple/share and callout string),
+  `derivePlanValue` (cumulative month line, plan reference, paid-off day,
+  `linearProjection` to month end, hidden until 3 days have elapsed; "today" is `Summary.generatedAt`, not a
+  render-time clock), `deriveDailyByModel` (+7-day moving average) and
+  `deriveEffortCostPerMsg` (also feeds the Efficiency KPIs/note). Delta colour
+  semantics live in `deltaTone` (cost up = warn, savings up = good); the arrow
+  is part of the label text so direction never depends on colour alone.
+- **`hooks/use-plan-price.ts`** — `usePlanPrice()` over `localStorage["plan-price"]`
+  (20|100|200, default 200) via `useSyncExternalStore`; the server/hydration
+  snapshot is the default, so there is no hydration mismatch.
 - **`hooks/use-sessions-view.ts`** — search/filter/sort view model for the
-  Sessions table. Search text runs through **`useDeferredValue`** so typing
-  stays responsive while a large `allSessions` list re-filters.
+  Sessions table (search matches project or session id) plus `derivePareto`
+  (cumulative cost-share curve, top-10%/20% shares) and `deriveScatter`
+  (messages vs cost per session; outlier = cost > 2x the median cost of its
+  `floor(log2(messages))` bin). Both charts describe the whole range and ignore
+  the table's search/model filters. Search text runs through
+  **`useDeferredValue`** so typing stays responsive while a large
+  `allSessions` list re-filters.
 - **`hooks/use-daily-view.ts`** — sort + expand view model for the Daily
-  table, plus the `cacheShare`/`tokensPerDollar` calculation helpers.
-- **`hooks/use-efficiency-view.ts`** — per-project/per-model efficiency
-  metrics (`outputShare`, `cacheShare`, `outputPerDollar`) plus sort + expand
-  view model.
-- **`hooks/use-projects-view.ts`** — selected-project state and the derived
-  "latest 15 sessions for that project" list for the Projects master/detail
-  layout.
+  table; `deriveDailyRows` (share-of-range bar width, per-model parts, cache
+  share, tokens/$) and `deriveDailyStats`. `tokensPerDollar` counts *all* token
+  types (cache reads dominate, which is the point).
+- **`hooks/use-compare-view.ts`** — Compare days. State is `{a, b, slot}` (day
+  keys) held raw (`null` = "use the default") and re-resolved against the current
+  days on every render by the pure `resolveSelection`, so a selected day that
+  leaves the range/effort filter falls back to `defaultPair` (A = latest active
+  day; B = same weekday a week earlier if it has data, else the previous active
+  day; 0/1-day ranges yield a null B) with no effect. Only an explicit pick,
+  swap or quick pick pins days; `setSlot` does not. `swapSlots` is a no-op unless
+  both slots are set, and while B is null the view renders only the strip and a
+  hint (`compareHint`). Days come from `compareDays` (`fillDays` over `daySpan`,
+  idle days = zero rows; memoised once and passed to `dayStrip`/`quickPicks`).
+  Exported pure fns, all tested: `dayStrip`, `quickPicks`/`quickTarget`
+  (disabled when the target day is outside the range or has no data; `active` is
+  derived from the current a/b, not stored), `compareCards` (cost and cost/msg up
+  = warn; averages over a zero denominator show "—"/n/a), `pairHours` (shared
+  scale), `hoursSummary`/`tokenTypeRows().summary` (screen-reader text),
+  `modelDiff` (A−B, |diff| < $0.005 dropped, sorted by |diff|), `topSessionRows`,
+  `whatChanged` (`Finding[]`; never emits NaN/Infinity, ratio only when both days
+  have spend, "about the same" under half a cent). Weekday/date helpers
+  (`WEEKDAYS`, `WEEKDAYS_LONG`, `weekdayOf`, `addDays`) live in `lib/format.ts`
+  and are shared with the Daily and Patterns hooks. A/B colours live in
+  `components/charts.tsx` (`SLOT_COLOR`), always paired with an A/B text label.
+- **`hooks/use-efficiency-view.ts`** — `deriveEfficiencyKpis`,
+  `deriveModelRows` (per-model/per-effort metrics for the expandable table),
+  `effortModelGrid` (cost/message matrix, models as columns, with intensity for
+  shading) and `effortGridNote` (the generated takeaway).
+- **`hooks/use-patterns-view.ts`** — `heatmapMarginals` (weekday/hour totals,
+  peaks), `derivePatternStats` and `deriveHeatmapModel` (Monday-first rows with
+  cell alpha, row totals, hourly bars) consumed by `components/heatmap.tsx`.
+- **`hooks/use-projects-view.ts`** — list filter/selection state and
+  `deriveProjectList` / `deriveProjectDetail` (stats, per-day per-model stacked
+  cost from `ProjectRow.byDay[].models`, latest 15 sessions).
+- **`components/charts.tsx`** — Recharts wrappers (`Sparkline`, `TurnCostBars`,
+  `PlanValueChart`, `DailyStackedCost`, `EffortCostBars`, `ParetoCurve`,
+  `SessionScatter`, `ModelLegend`). Purely presentational: they map
+  already-derived rows onto Recharts and do no derivation: no aggregation,
+  ratios, sorting or insight strings (they only pass values through, call
+  format helpers such as `fmtUSDShort` for ticks, and take axis domains/ticks
+  from the hook). Model colours come from one
+  function family in `lib/format.ts`, so a model has the same colour
+  in every chart and table. Colours are chart tokens by model FAMILY (opus
+  chart-1, sonnet chart-2, fable chart-3, haiku chart-4, other chart-5), so a
+  family's colour is fixed by construction. Views build
+  `modelPalette(data.allModels)`; `Summary.allModels` is every model in ANY
+  record (ignores date window and effort filter, cost desc then id, collected in
+  `summarize()`'s single pass). Several versions of one family are told apart
+  by an alpha step of the family colour (1, 0.72, 0.5, 0.36) in `allModels`
+  order, so a version keeps its step across filters and pages.
+  `modelColor()` is the context-free fallback (family colour, full strength;
+  unknown = chart-5). Derive functions take an optional `colorOf`. **UI/logic rule**: `.tsx` files hold
+  no arithmetic, sorting, filtering, ratio or insight-string building — that
+  lives in the exported `derive*` functions above (only trivial format calls
+  like `usdExact(x)` are allowed in JSX).
 - Pure calculation helpers that don't need React state live as non-exported
-  (or `export`ed for reuse in tests/other hooks) functions inside the
-  relevant hook file; they only move to `lib/` if genuinely shared across
-  hooks and lib code, never into a new `lib/` subdirectory.
+  (or `export`ed for tests) functions inside the relevant hook file.
+  **View hooks (`hooks/use-*-view.ts`) never import other view hooks**: a helper
+  or type two of them need moves to `lib/` (`lib/derive.ts`, `lib/stats.ts`,
+  `lib/format.ts`), never into a new `lib/` subdirectory.
+- **Idle days count as zero.** `byDay`/`byDayModel` only contain days with
+  usage, so anything time-based (7-day average, sparklines, the Projects day
+  chart) densifies with `fillDays(rows, span.from, span.to, make)` first, over
+  `daySpan(summary)`: bounded ranges run from the range start to the earlier of
+  the range end and today (`generatedAt`); "all" runs first to last active day.
 - **Dependency rule**: components import hooks + `lib` types/helpers + `ui`;
   hooks import `lib` (types, `effort`, `format`, `pricing` are fine) and
   React. Hooks and components **never** import runtime values from
@@ -150,6 +288,113 @@ shared `empty()` bucket shape and `add()` accumulator — each record is folded
 into every relevant bucket in a single pass. Follow this pattern for new
 breakdowns rather than post-processing `records` again elsewhere.
 
+The same pass also folds in the cross-cutting extras:
+
+- **Project day x model** — each `ProjectRow.byDay[]` entry carries a slim
+  `models: {model, cost}[]` (cost desc) so the Projects view can stack a
+  project's daily cost by model without token counts.
+
+- **Message position** (`turnBuckets`, `TURN_BUCKETS`) uses a per-conversation
+  counter incremented for **every** record *before* the date/effort filters.
+  `buildRecords` returns records globally ts-sorted, so the counter is a
+  message's true position even when the session began before the selected
+  range. Don't move the increment below a `continue`. The counter is keyed by
+  `session + agent`: subagent (sidechain) transcripts carry the parent
+  `sessionId` but are separate conversations, so `ParsedLine`/`UsageRecord`
+  carry an `agent` field (`agentId`, else `"sidechain"`, else `""`) and
+  `CACHE_VERSION` was bumped to 2 for that line-parsing change. `agent` is not
+  part of the dedup key.
+- **Previous window** (`Summary.previous`) is the same number of whole *local
+  calendar days* ending the instant before `from` (computed with `Date` parts,
+  so a DST change can't shift it by an hour). When the selected window ends in
+  the future (`to > now`, e.g. "This month") the previous window is trimmed to
+  the same elapsed length and `previous.partial` is `true`, so a partial period
+  is never compared with a complete one (KPI/subtitle copy says "same point in
+  previous period"). **`planMonth`** is always the CURRENT calendar month
+  (containing `now`, not `to`), **all efforts**, independent of both the range
+  and the effort filter — the plan card is "this month". Both need records
+  outside the range, so they are folded in the same loop ahead of the range
+  check. `previous` is `null` for unbounded (`"all"`) ranges. `summarize()`
+  takes `opts.now` (default `Date.now()`) so tests can pin "today".
+  `summarize()` always receives every record — the route never pre-filters.
+- **`saved`, `cacheNetSaved` and `tokenCost`** come from real per-model rates
+  (`lib/pricing.ts`, memoised; priced once per record) at summarize time, never
+  from the cache — a pricing change needs no `CACHE_VERSION` bump. `saved` (on
+  every bucket) is **gross** cache-read savings (read tokens at input rate minus
+  cache-read rate). `Summary.cacheNetSaved` (and `previous.cacheNetSaved`) is
+  net: gross minus the cache-write premium over plain input, using the exact
+  write cost (TTL-aware). `tokenCost.cacheWrite` is the residual (cost minus
+  input/output/cacheRead). Per-day `hours` use local hours, like
+  `byHour`/`heatmap`.
+
+## UI primitives (shadcn on Tailwind v3)
+
+`components.json` targets shadcn `base-nova` (Base UI), but the project is on
+**Tailwind v3** and stays there. Generated primitives in `components/ui/`
+(sidebar, popover, calendar, tooltip, sheet, toggle-group, ...) are written for
+Tailwind v4, so after `npx shadcn add ...` they must be rewritten by hand:
+`w-(--x)` -> `w-[var(--x)]`, `data-open:`/`data-closed:`/`data-active:` ->
+`data-[open]:` etc. (Base UI sets presence attributes such as `data-open`, not
+`data-state`), `size-8!` -> `!size-8`, `has-data-[x]` -> `has-[[data-x]]`,
+`outline-hidden` -> `outline-none`, `in-data-[..]` -> `group-data-[..]`,
+`--spacing(n)` -> rem, and the `cn` import must be `@/lib/utils` (the CLI once
+added the unrelated `cn` npm package). `--sidebar-*` colors are HSL triplets in
+`app/globals.css` (used as `oklch(var(--sidebar-*))`) mapped in
+`tailwind.config.ts`; `--radius-md` is defined there too because generated
+classes reference it. Older generated files (`button.tsx`) still contain some
+v4 syntax that silently does nothing.
+
+## Theme (the design mockups' palette)
+
+The palette is **the design mockups' palette** (`docs/design/*.dc.html`),
+expressed as tokens; components are shadcn's, the colours are ours.
+`app/globals.css` defines every colour as an oklch **channel triplet** with no
+alpha (`--card: 0.2011 0.0039 286.04; /* #161618 */`, converted from the exact
+mockup hex; the hex is kept in a trailing comment). `.dark` is the mockup
+palette (the app forces it); `:root` is a light mirror only so tokens resolve.
+`tailwind.config.ts` maps **every** token as `oklch(var(--x) / <alpha-value>)`.
+All tokens are opaque (border/input/sidebar-border are opaque triplets too), so
+any of them takes an opacity modifier (`bg-primary/80`, `border-border/50`).
+Inline styles use `oklch(var(--x))` / `oklch(var(--x) / 0.4)`.
+`--radius` is 12px (cards, inset panel); `md` = 8px (controls), `sm` = 6px (nav
+items). Body/outer frame and the sidebar are `--sidebar` (#0B0B0C); the
+`SidebarInset` is `--background` (#121213) with a 1px `--sidebar-border`
+(#232326) and 12px radius, 8px margin.
+
+shadcn tokens: `background` #121213 (inset panel), `foreground` #FAFAFA,
+`card`/`popover` #161618, `primary` #E07B53 (accent; `primary-foreground`
+#1C1917), `secondary`/`accent`/`sidebar-accent`/`sidebar-border` #232326,
+`muted` #1C1C1F (hover bg), `muted-foreground` #A1A1AA, `border` #26262A,
+`input` #2C2C30 (control borders), `ring`/`sidebar-ring` #52525B,
+`destructive` #F87171, `sidebar` #0B0B0C, `chart-1..5` = opus #E07B53, sonnet
+#6C9CF0, fable #B69CF7, haiku #3E9E8A, other #E8B24A.
+
+Extra tokens for roles the mockups use (Tailwind names in parentheses):
+`--subtle-foreground` #8B8B93 (captions, axis ticks, table heads;
+`text-subtle-foreground`), `--soft-foreground` #D4D4D8 (secondary text, neutral
+delta), `--nav-foreground` #B4B4BB (inactive nav), `--delta-bad` #F0A36B (cost
+up), `--delta-good` #8AB4F8, `--slot-b` #8AB4F8 (Compare slot B), `--panel`
+#0B0B0C (segmented-control track / input background), `--row-hover` #18181B,
+`--row-detail` #131315 (expanded row), `--divider` #1F1F22 (row dividers,
+delta-badge bg, empty heatmap cell), `--grid` #232326 (dashed chart grid),
+`--axis` #2C2C30, `--effort-1..5` #52525B/#71717A/#A1A1AA/#D4D4D8/accent,
+`--effort-unknown` #3F3F46, `--effort-all` #FAFAFA (all via `effortColor()` in
+`lib/format.ts`), `--token-input` #71717A, `--token-output` #D4D4D8,
+`--token-cache-write` #B69CF7, `--token-cache-read` #3E9E8A.
+
+**No hard-coded colours** in `components/**`, `hooks/**`, `lib/**`: no hex, no
+literal `oklch(<numbers>)`/`hsl(<numbers>)`, no Tailwind palette classes
+(`amber-400`, `zinc-*`, ...). Use tokens. Semantics: cost-up = `delta-bad`,
+good = `delta-good`, neutral = `soft-foreground` (arrows stay in the text);
+Compare A/B = `primary`/`slot-b` (`SLOT_COLOR`; badge text `primary-foreground`,
+8.3:1 on slot-b, 5.9:1 on primary); heatmaps and the Efficiency grid =
+`primary` with alpha. **Numbers** (KPI values, table numbers, axis ticks,
+costs, dates, counts, model ids) use `font-mono tabular-nums` (Geist Mono is
+loaded in `app/layout.tsx`). Only `globals.css`, `tailwind.config.ts` and the
+token strings in `lib/format.ts` / `hooks/use-compare-view.ts` name colours; the
+only literal `#ccc`/`#fff` are recharts attribute selectors in
+`components/ui/chart.tsx` (they match recharts' defaults, they don't paint).
+
 ## Rules
 
 - **Never use `message.usage.output_tokens_details.thinking_tokens`** — it reads
@@ -159,13 +404,28 @@ breakdowns rather than post-processing `records` again elsewhere.
 - Filters (date range, effort) are applied **inside `summarize()`**, before
   aggregation, so every view/table/chart gets a consistently filtered `Summary`
   — never filter a subset of the data downstream in a single view.
+- **`<synthetic>` model records are skipped** at the top of `summarize()`'s loop
+  (before the per-session position counter and every bucket, including
+  `allModels`). Claude Code writes assistant lines with `model: "<synthetic>"`
+  and all-zero usage for locally generated notices (e.g. `isApiErrorMessage`,
+  `error: "rate_limit"`, "You've hit your session limit"). They are not API
+  calls, so counting them would inflate message/turn counts and add a phantom
+  model. The skip lives in `summarize()`, not the parser, so `CACHE_VERSION`
+  is unchanged.
+- Count + noun strings go through `fmtCount(n, "msg")` in `lib/format.ts`
+  ("1 msg" / "721 msgs"); don't hand-build `${n} msgs`.
 
 ## Verification
 
-`npx tsc --noEmit && npm run lint && npm run build` must pass. `npm run lint`
+`npx tsc --noEmit && npm run lint && npm run build && npm test` must pass. `npm run lint`
 now runs `eslint .` against the flat config in `eslint.config.mjs` (ESLint 9;
-`eslint-config-next` for Next 16.3). There is no test suite. Manual/browser
-verification is not required for routine changes.
+`eslint-config-next` for Next 16.3). `npm test` runs vitest
+(`lib/__tests__/*.test.ts` and `hooks/__tests__/*.test.ts`; `server-only` is aliased to an empty module in
+`vitest.config.mts` so `summarize()` is importable in plain Node; TZ is pinned
+to America/New_York there because bucketing is local-time and the DST test
+needs a DST zone). Add a test
+when changing `summarize()`, `lib/stats.ts` or any exported `derive*` function. Manual/browser verification is
+not required for routine changes.
 
 Stack: Next.js 16.3.x + React 19.3.x, Node >=20.9 (see `engines` in
 `package.json`).

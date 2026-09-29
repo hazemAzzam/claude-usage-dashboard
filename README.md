@@ -29,7 +29,7 @@ no database, and no account or API key is required.
 
 - [Why use this](#why-use-this)
 - [Quick start](#quick-start)
-- [What you get — the five views](#what-you-get--the-five-views)
+- [What you get — the five views](#what-you-get--the-views)
 - [Effort levels](#effort-levels)
 - [Ask about your usage (optional chat panel)](#ask-about-your-usage-optional-chat-panel)
 - [Configuration](#configuration)
@@ -90,38 +90,59 @@ npm run start
 
 ---
 
-## What you get — the five views
+## What you get — the views
 
 Every view shares a range filter at the top: **7 / 30 / 90 days / All time**, plus
 a **Refresh** button that forces a re-scan of your transcripts.
 
 ### 📊 Overview
 Your at-a-glance landing page:
-- **KPI cards** — total cost, session count, total tokens, and cache-read share
-- **Cost over time** — an area/line chart with one toggleable line per model
-- **Cost by model** — donut chart with legend
-- **Top projects** — bar chart of your biggest spenders
-- **Token breakdown** — input / output / cache-write / cache-read
-- **Most expensive sessions** — your top 12 sessions
-- An optional **chat panel** (see below)
+- **KPI cards** — total cost, sessions, cost per message and net savings from
+  caching, each with a change vs. the previous equal-length period (`n/a` when
+  there is none, e.g. "All time") and a per-day sparkline
+- **Long sessions cost more per turn** — average cost per message by position in
+  the session, with a generated callout (and a `/compact` hint) about turns 151+
+- **Value vs. your plan** — cumulative spend for the current calendar month
+  against a $20 / $100 / $200 plan (your pick is remembered in the browser), the
+  day the plan "paid off" and a projection to month end
+- **Daily cost by model** — stacked bars plus a 7-day moving average
+- **Cost per message by effort**
+- An optional **chat panel** (see below), opened from the sidebar
 
 ### 🗒️ Sessions
-A full, sortable, filterable table of **every** coding session. Filter by project
-name or model, and sort by any column (date, cost, messages, input/output/cache
-tokens).
+Two insight cards — a **Pareto curve** (how much of your spend comes from the
+costliest 10% / 20% of sessions) and a **length-vs-cost scatter** (log scales,
+ringed = over 2x the typical cost for that length) — above a searchable
+(project or session id), model-filterable, sortable table of **every** session
+that expands into a per-model breakdown.
 
 ### 📁 Projects
-Per-project drill-down. Pick a project from the cost-ranked sidebar to see its
-cost over time, model breakdown, daily stats, and session list.
+A filterable master list plus a per-project detail: stats, cost over time
+stacked by model, a by-model table and the latest sessions.
 
 ### 📅 Daily
-A day-by-day table (cost, messages, input, output, cache-create, cache-read,
-cache share %) plus summary stats: active days, average cost/day, and your
-busiest day.
+A day-by-day table with a share-of-range bar split by model, tokens per $, and
+expandable per-model rows, plus stats: active days, average cost/day (with the
+weekend-vs-weekday note), peak day and tokens per $.
+
+### 🔀 Compare days
+Pick two days (slots A and B) from a strip of every day in the range and see
+them side by side: cost, messages, turns per session and cost per message with
+deltas, hour-by-hour paired bars, a generated "What changed" list, a per-model
+cost difference, cost by token type and each day's top sessions. Quick picks
+cover "vs previous day", "vs same day last week" and busiest vs quietest
+weekday (disabled when the target has no data or falls outside the range).
+If the range has no second active day, only the day strip and a hint show.
+
+### 🧮 Efficiency
+Four action KPIs (cost per message, saved by caching, best output per $ model,
+Max-vs-Low effort multiple), a per-model table you can expand by effort level,
+and an **effort x model grid** of cost per message with a generated takeaway.
 
 ### 🔥 Patterns
-Discover your coding habits with a **weekday × hour-of-day cost heatmap** and an
-hour-of-day bar chart — surfacing your peak hour, peak weekday, and active hours.
+A **weekday x hour cost heatmap** with weekday totals on the right and hourly
+totals below, plus four stats: peak hour, peak day, busiest-hour share and
+active hours.
 
 ---
 
@@ -164,15 +185,15 @@ only because higher effort makes the model *generate more output tokens* per
 turn. Real-world example (Opus 4.8, average output tokens per assistant
 message): medium ≈ 1385, high ≈ 1575, xhigh ≈ 2064, max ≈ 3100.
 
-**Using it:** the **effort filter** in the header (next to the date range) is
-a single-select chip row — "All efforts" plus one chip per level seen in the
+**Using it:** the **effort filter** in the sidebar's "Effort" group is
+a single-select list (with cost per level) — "All efforts" plus one item per level seen in the
 current date window (`availableEfforts`); picking one narrows every view's
 data server-side, the same way the date range does. The **Efficiency** view's
-"Efficiency by model" table adds an **Output / msg** column, and any model
-with more than one effort level in range gets an expand chevron that reveals
-a per-effort breakdown (msgs, output/msg, cost, cost/msg) — mirroring how the
-Daily and Sessions tables expand into a per-model breakdown. The **Overview**
-also shows a compact "Cost by effort" card.
+"By model" table lets any model with more than one effort level in range
+expand to a per-effort breakdown — mirroring how the Daily and Sessions tables
+expand into a per-model breakdown — and the **Effort x model** grid compares
+cost per message across both. The **Overview** shows a "Cost per message by
+effort" chart.
 
 ---
 
@@ -255,7 +276,7 @@ cp .env.example .env.local
   server-only aggregation in `lib/usage.ts` and client components import from it.
 - **`app/api/usage/route.ts`** — aggregates the parsed data for the requested range
   (and optional `effort` filter) and returns it as JSON.
-- **`hooks/`** — all client-side state, fetching, and derived view models. `app/page.tsx`
+- **`hooks/`** — all client-side state, fetching, and derived view models. the route pages under `app/(dashboard)/`
   and `components/views/*` are presentational: they take hook results/props in and render
   JSX out, with no `fetch`, `useEffect`, or inline sorting/aggregation of their own. See
   [Client layering](#client-layering) below.
@@ -271,10 +292,11 @@ cp .env.example .env.local
 ## Client layering
 
 The client is split the same way React 19 encourages: **hooks own state, fetching,
-and derived data; components are presentational.** `app/page.tsx` composes
-`useDashboardFilters` + `useUsageSummary` and renders the active view — no `fetch`,
-`useEffect`, or inline sorting/aggregation lives in `app/page.tsx` or `components/`
-anymore. See `CLAUDE.md` for the full hook list and the server-only import rule.
+and derived data; components are presentational.** `app/(dashboard)/layout.tsx`
+mounts a `DashboardProvider` (`useDashboardFilters` + `useUsageSummary`) so filters and the
+fetched summary are shared across the per-view routes (`/`, `/sessions`, `/projects`,
+`/daily`, `/compare`, `/efficiency`, `/patterns`) without refetching on navigation — no `fetch`,
+`useEffect`, or inline sorting/aggregation lives in the pages or `components/`. See `CLAUDE.md` for the full hook list and the server-only import rule.
 
 ---
 
@@ -295,18 +317,21 @@ claude-usage-dashboard/
 │   ├── use-dashboard-filters.ts # Date range + presets + effort selection, rangeKey
 │   ├── use-sortable.ts         # Generic sort key/dir/toggle
 │   ├── use-expandable.ts       # Generic expand/collapse row-id set
-│   ├── use-sessions-view.ts    # Sessions search/filter/sort view model
-│   ├── use-daily-view.ts       # Daily table sort + expand view model
-│   ├── use-efficiency-view.ts  # Efficiency metrics + sort + expand view model
-│   └── use-projects-view.ts    # Projects master/detail selection view model
+│   ├── use-overview-view.ts    # Overview derivations (KPIs, turn cost, plan value, ...)
+│   ├── use-plan-price.ts       # Plan price ($20/$100/$200) in localStorage
+│   ├── use-sessions-view.ts    # Sessions search/filter/sort + Pareto + scatter
+│   ├── use-daily-view.ts       # Daily rows (model split bar), stats, sort + expand
+│   ├── use-compare-view.ts     # Compare-days selection state + pure diff derivations
+│   ├── use-efficiency-view.ts  # Efficiency KPIs, model table, effort x model grid
+│   ├── use-patterns-view.ts    # Heatmap marginals + pattern stats
+│   └── use-projects-view.ts    # Projects list filter + detail model
 ├── components/
-│   ├── views/                # overview, sessions, projects, daily, efficiency, patterns — presentational
+│   ├── views/                # overview, sessions, projects, daily, compare, efficiency, patterns — presentational
 │   ├── ui/                   # shadcn primitives
-│   ├── charts.tsx            # Recharts wrappers
+│   ├── charts.tsx            # Recharts wrappers (sparkline, turn-cost bars, plan value, stacked daily cost, Pareto, scatter)
 │   ├── chat-panel.tsx        # Streaming chat UI
-│   ├── date-range-inputs.tsx # Date range picker + quick presets (presets passed in as data)
-│   ├── effort-filter.tsx     # Effort-level chip filter (header)
-│   ├── heatmap.tsx           # Weekday × hour cost heatmap
+│   ├── shell/                # app-sidebar, nav-main/effort/secondary/source, top-bar, date-range-picker — presentational
+│   ├── heatmap.tsx           # Weekday × hour cost heatmap with marginal totals
 │   └── stats.tsx             # Shared atoms (KPIs, tables, sort headers)
 ├── lib/
 │   ├── usage.ts              # Aggregation (summarize()) over already-parsed records

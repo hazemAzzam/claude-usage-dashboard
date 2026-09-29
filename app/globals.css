@@ -3,59 +3,128 @@
 @tailwind utilities;
 
 @layer base {
+  /* The palette of the design mockups (docs/design/*.dc.html), expressed as
+     oklch channel triplets (`L C H`, no alpha) consumed as
+     oklch(var(--x) / <alpha-value>) — see tailwind.config.ts. Every value is
+     the exact mockup hex (kept in the trailing comment), converted with the
+     standard sRGB -> OKLab -> OKLCH matrices. All tokens are opaque, so any of
+     them accepts a Tailwind opacity modifier. `.dark` IS the mockup palette
+     (the app forces it); `:root` is a light mirror kept only so the tokens
+     resolve if the class is ever dropped. */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --background: 0.9851 0 0; /* #fafafa */
+    --foreground: 0.2103 0.0059 285.89; /* #18181b */
+    --card: 1 0 0; /* #ffffff */
+    --card-foreground: 0.2103 0.0059 285.89; /* #18181b */
+    --popover: 1 0 0; /* #ffffff */
+    --popover-foreground: 0.2103 0.0059 285.89; /* #18181b */
+    --primary: 0.6876 0.1369 41.84; /* #e07b53 */
+    --primary-foreground: 0.2161 0.0061 56.04; /* #1c1917 */
+    --secondary: 0.9674 0.0013 286.38; /* #f4f4f5 */
+    --secondary-foreground: 0.2103 0.0059 285.89; /* #18181b */
+    --muted: 0.9674 0.0013 286.38; /* #f4f4f5 */
+    --muted-foreground: 0.4419 0.0146 285.79; /* #52525b */
+    --accent: 0.9674 0.0013 286.38; /* #f4f4f5 */
+    --accent-foreground: 0.2103 0.0059 285.89; /* #18181b */
+    --destructive: 0.5771 0.2152 27.33; /* #dc2626 */
+    --border: 0.9197 0.004 286.32; /* #e4e4e7 */
+    --input: 0.8711 0.0055 286.29; /* #d4d4d8 */
+    --ring: 0.7118 0.0129 286.07; /* #a1a1aa */
+    --chart-1: 0.6876 0.1369 41.84; /* #e07b53 */
+    --chart-2: 0.6951 0.1347 260.99; /* #6c9cf0 */
+    --chart-3: 0.7507 0.1305 296.26; /* #b69cf7 */
+    --chart-4: 0.6368 0.0951 176.96; /* #3e9e8a */
+    --chart-5: 0.7945 0.1343 80.86; /* #e8b24a */
+    --sidebar: 0.9674 0.0013 286.38; /* #f4f4f5 */
+    --sidebar-foreground: 0.2103 0.0059 285.89; /* #18181b */
+    --sidebar-primary: 0.6876 0.1369 41.84; /* #e07b53 */
+    --sidebar-primary-foreground: 0.2161 0.0061 56.04; /* #1c1917 */
+    --sidebar-accent: 0.9197 0.004 286.32; /* #e4e4e7 */
+    --sidebar-accent-foreground: 0.2103 0.0059 285.89; /* #18181b */
+    --sidebar-border: 0.9197 0.004 286.32; /* #e4e4e7 */
+    --sidebar-ring: 0.7118 0.0129 286.07; /* #a1a1aa */
+    --subtle-foreground: 0.5517 0.0138 285.94; /* #71717a */
+    --soft-foreground: 0.3703 0.0119 285.81; /* #3f3f46 */
+    --nav-foreground: 0.4419 0.0146 285.79; /* #52525b */
+    --delta-bad: 0.5836 0.1522 44.38; /* #c2571f */
+    --delta-good: 0.5573 0.1716 259.65; /* #2f6fd6 */
+    --slot-b: 0.5573 0.1716 259.65; /* #2f6fd6 */
+    --panel: 0.9674 0.0013 286.38; /* #f4f4f5 */
+    --row-hover: 0.9674 0.0013 286.38; /* #f4f4f5 */
+    --row-detail: 0.9851 0 0; /* #fafafa */
+    --divider: 0.9437 0.0027 286.35; /* #ececee */
+    --grid: 0.9197 0.004 286.32; /* #e4e4e7 */
+    --axis: 0.8711 0.0055 286.29; /* #d4d4d8 */
+    --effort-1: 0.7118 0.0129 286.07; /* #a1a1aa */
+    --effort-2: 0.5517 0.0138 285.94; /* #71717a */
+    --effort-3: 0.4419 0.0146 285.79; /* #52525b */
+    --effort-4: 0.3703 0.0119 285.81; /* #3f3f46 */
+    --effort-5: 0.6876 0.1369 41.84; /* #e07b53 */
+    --effort-unknown: 0.8711 0.0055 286.29; /* #d4d4d8 */
+    --effort-all: 0.2103 0.0059 285.89; /* #18181b */
+    --token-input: 0.5517 0.0138 285.94; /* #71717a */
+    --token-output: 0.3703 0.0119 285.81; /* #3f3f46 */
+    --token-cache-write: 0.7507 0.1305 296.26; /* #b69cf7 */
+    --token-cache-read: 0.6368 0.0951 176.96; /* #3e9e8a */
+    --radius-md: calc(var(--radius) - 4px); /* used by components/ui/button.tsx */
+    --radius: 0.75rem; /* cards 12px; controls = --radius-md (8px); nav items = --radius-sm (6px) */
   }
 
   .dark {
-    --background: 20 14.3% 4.1%;
-    --foreground: 0 0% 95%;
-    --card: 24 9.8% 10%;
-    --card-foreground: 0 0% 95%;
-    --popover: 0 0% 9%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 14 65% 60%;
-    --primary-foreground: 20 14% 6%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 15%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 12 6.5% 15.1%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 14 65% 60%;
-    --chart-1: 14 70% 58%;
-    --chart-2: 173 58% 45%;
-    --chart-3: 43 74% 60%;
-    --chart-4: 250 55% 65%;
-    --chart-5: 340 60% 58%;
+    --background: 0.1826 0.002 286.2; /* #121213 */
+    --foreground: 0.9851 0 0; /* #fafafa */
+    --card: 0.2011 0.0039 286.04; /* #161618 */
+    --card-foreground: 0.9851 0 0; /* #fafafa */
+    --popover: 0.2011 0.0039 286.04; /* #161618 */
+    --popover-foreground: 0.9851 0 0; /* #fafafa */
+    --primary: 0.6876 0.1369 41.84; /* #e07b53 */
+    --primary-foreground: 0.2161 0.0061 56.04; /* #1c1917 */
+    --secondary: 0.2574 0.0056 286; /* #232326 */
+    --secondary-foreground: 0.9851 0 0; /* #fafafa */
+    --muted: 0.2277 0.0057 285.93; /* #1c1c1f */
+    --muted-foreground: 0.7118 0.0129 286.07; /* #a1a1aa */
+    --accent: 0.2574 0.0056 286; /* #232326 */
+    --accent-foreground: 0.9851 0 0; /* #fafafa */
+    --destructive: 0.7106 0.1661 22.22; /* #f87171 */
+    --border: 0.2702 0.0073 285.9; /* #26262a */
+    --input: 0.2947 0.0072 285.95; /* #2c2c30 */
+    --ring: 0.4419 0.0146 285.79; /* #52525b */
+    --chart-1: 0.6876 0.1369 41.84; /* #e07b53 */
+    --chart-2: 0.6951 0.1347 260.99; /* #6c9cf0 */
+    --chart-3: 0.7507 0.1305 296.26; /* #b69cf7 */
+    --chart-4: 0.6368 0.0951 176.96; /* #3e9e8a */
+    --chart-5: 0.7945 0.1343 80.86; /* #e8b24a */
+    --sidebar: 0.15 0.0021 286.14; /* #0b0b0c */
+    --sidebar-foreground: 0.9851 0 0; /* #fafafa */
+    --sidebar-primary: 0.6876 0.1369 41.84; /* #e07b53 */
+    --sidebar-primary-foreground: 0.2161 0.0061 56.04; /* #1c1917 */
+    --sidebar-accent: 0.2574 0.0056 286; /* #232326 */
+    --sidebar-accent-foreground: 0.9851 0 0; /* #fafafa */
+    --sidebar-border: 0.2574 0.0056 286; /* #232326 */
+    --sidebar-ring: 0.4419 0.0146 285.79; /* #52525b */
+    --subtle-foreground: 0.6393 0.0118 286.06; /* #8b8b93 */
+    --soft-foreground: 0.8711 0.0055 286.29; /* #d4d4d8 */
+    --nav-foreground: 0.7721 0.0098 286.17; /* #b4b4bb */
+    --delta-bad: 0.7792 0.1165 56.09; /* #f0a36b */
+    --delta-good: 0.7661 0.1083 259.79; /* #8ab4f8 */
+    --slot-b: 0.7661 0.1083 259.79; /* #8ab4f8 */
+    --panel: 0.15 0.0021 286.14; /* #0b0b0c */
+    --row-hover: 0.2103 0.0059 285.89; /* #18181b */
+    --row-detail: 0.1876 0.004 286.01; /* #131315 */
+    --divider: 0.2405 0.0057 285.97; /* #1f1f22 */
+    --grid: 0.2574 0.0056 286; /* #232326 */
+    --axis: 0.2947 0.0072 285.95; /* #2c2c30 */
+    --effort-1: 0.4419 0.0146 285.79; /* #52525b */
+    --effort-2: 0.5517 0.0138 285.94; /* #71717a */
+    --effort-3: 0.7118 0.0129 286.07; /* #a1a1aa */
+    --effort-4: 0.8711 0.0055 286.29; /* #d4d4d8 */
+    --effort-5: 0.6876 0.1369 41.84; /* #e07b53 */
+    --effort-unknown: 0.3703 0.0119 285.81; /* #3f3f46 */
+    --effort-all: 0.9851 0 0; /* #fafafa */
+    --token-input: 0.5517 0.0138 285.94; /* #71717a */
+    --token-output: 0.8711 0.0055 286.29; /* #d4d4d8 */
+    --token-cache-write: 0.7507 0.1305 296.26; /* #b69cf7 */
+    --token-cache-read: 0.6368 0.0951 176.96; /* #3e9e8a */
   }
 }
 
@@ -64,6 +133,6 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-sidebar text-foreground;
   }
 }
