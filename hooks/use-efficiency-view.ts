@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import type { EffortBucket, ModelBucket, Summary } from "@/lib/usage";
 import { EFFORT_LABEL, EFFORT_ORDER, type Effort } from "@/lib/effort";
-import { cacheShare, dayKeyOf, modelColor, shortDay, shortModel, tokens, usdExact, usdFine, num, fmtDelta } from "@/lib/format";
+import { cacheShare, dayKeyOf, modelPalette, shortDay, shortModel, tokens, usdExact, usdFine, num, fmtDelta } from "@/lib/format";
 import { pctDelta, safeDiv } from "@/lib/stats";
 import { useExpandable } from "@/hooks/use-expandable";
 import { deriveEffortCostPerMsg } from "@/lib/derive";
@@ -112,14 +112,15 @@ function metricsOf(b: ModelBucket | EffortBucket): EfficiencyMetrics {
   };
 }
 
-export function deriveModelRows(byModel: ModelBucket[]): EfficiencyModelRow[] {
+export function deriveModelRows(byModel: ModelBucket[], allModels: string[] = byModel.map((m) => m.model)): EfficiencyModelRow[] {
+  const colorOf = modelPalette(allModels);
   return byModel
     .filter((m) => m.cost > 0)
     .sort((a, b) => b.cost - a.cost)
     .map((m) => ({
       model: m.model,
       label: shortModel(m.model),
-      color: modelColor(m.model),
+      color: colorOf(m.model),
       ...metricsOf(m),
       efforts: (m.efforts ?? []).map((e) => ({ effort: e.effort, label: EFFORT_LABEL[e.effort], ...metricsOf(e) })),
     }));
@@ -131,6 +132,7 @@ export interface GridCell {
   label: string;
   intensity: number; // 0 (cheapest cell) .. 1 (priciest cell)
   alpha: number; // background opacity derived from intensity
+  strong: boolean; // background dense enough that the label needs the on-primary text colour
   tip: string;
 }
 
@@ -164,6 +166,7 @@ export function effortModelGrid(byModel: ModelBucket[]): EffortModelGrid {
         label: value === null ? "—" : usdFine(value),
         intensity,
         alpha: value === null ? 0 : 0.08 + intensity * 0.5,
+        strong: value !== null && 0.08 + intensity * 0.5 > 0.4,
         tip: `${shortModel(models[ci].model)} at ${EFFORT_LABEL[efforts[ri]]} effort: ${value === null ? "no messages" : `${usdFine(value)} per message`}`,
       };
     }),
@@ -206,7 +209,7 @@ export function effortGridNote(grid: EffortModelGrid, ratioLabel: string | null)
 // the effort x model grid with its generated note.
 export function useEfficiencyView(data: Summary) {
   const kpis = useMemo(() => deriveEfficiencyKpis(data), [data]);
-  const modelRows = useMemo(() => deriveModelRows(data.byModel), [data.byModel]);
+  const modelRows = useMemo(() => deriveModelRows(data.byModel, data.allModels), [data.byModel, data.allModels]);
   const grid = useMemo(() => effortModelGrid(data.byModel), [data.byModel]);
   const gridNote = useMemo(() => effortGridNote(grid, deriveEffortCostPerMsg(data).ratioLabel), [grid, data]);
   const { isOpen: isModelOpen, toggle: toggleModel } = useExpandable();

@@ -55,8 +55,8 @@ export function Heatmap({ model }: { model: HeatmapModel }) {
                 <div
                   key={c.hour}
                   title={c.tip}
-                  className="aspect-square flex-1 rounded-[3px] ring-1 ring-inset ring-border/40"
-                  style={{ background: c.alpha > 0 ? `hsl(var(--primary) / ${c.alpha})` : "hsl(var(--muted) / 0.4)" }}
+                  className="aspect-square flex-1 rounded-[3px] ring-1 ring-inset ring-border"
+                  style={{ background: c.alpha > 0 ? `oklch(var(--primary) / ${c.alpha})` : "oklch(var(--muted) / 0.4)" }}
                 />
               ))}
             </div>
@@ -80,7 +80,7 @@ export function Heatmap({ model }: { model: HeatmapModel }) {
           <span>$0</span>
           <div className="flex gap-[2px]">
             {LEGEND.map((a) => (
-              <div key={a} className="h-3 w-3 rounded-[3px]" style={{ background: `hsl(var(--primary) / ${a})` }} />
+              <div key={a} className="h-3 w-3 rounded-[3px]" style={{ background: `oklch(var(--primary) / ${a})` }} />
             ))}
           </div>
           <span>{model.maxLabel}</span>

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { DayBucket, Summary } from "@/lib/usage";
-import { WEEKDAYS, weekdayOf, cacheShare, modelColor, num, shortDay, shortModel, tokens, usdExact } from "@/lib/format";
+import { WEEKDAYS, weekdayOf, cacheShare, modelColor, modelPalette, num, shortDay, shortModel, tokens, usdExact } from "@/lib/format";
 import { safeDiv, shareOf, sum } from "@/lib/stats";
 import { useSortable } from "@/hooks/use-sortable";
 import { useExpandable } from "@/hooks/use-expandable";
@@ -45,7 +45,7 @@ export interface DailyRow {
   tokensPerDollarLabel: string;
 }
 
-export function deriveDailyRows(rows: DayBucket[], maxCost: number): DailyRow[] {
+export function deriveDailyRows(rows: DayBucket[], maxCost: number, colorOf: (model: string) => string = modelColor): DailyRow[] {
   return rows.map((d) => ({
     d,
     dateLabel: shortDay(d.day),
@@ -54,7 +54,7 @@ export function deriveDailyRows(rows: DayBucket[], maxCost: number): DailyRow[] 
     parts: (d.models ?? []).map((m) => ({
       model: m.model,
       label: shortModel(m.model),
-      color: modelColor(m.model),
+      color: colorOf(m.model),
       messages: m.messages,
       cost: m.cost,
       costLabel: usdExact(m.cost),
@@ -120,11 +120,12 @@ export function useDailyView(data: Summary) {
   const { isOpen, toggle: toggleRow } = useExpandable();
 
   const maxCost = useMemo(() => Math.max(0, ...data.byDay.map((d) => d.cost)), [data.byDay]);
-  const rows = useMemo(() => deriveDailyRows(sorted, maxCost), [sorted, maxCost]);
+  const colorOf = useMemo(() => modelPalette(data.allModels), [data.allModels]);
+  const rows = useMemo(() => deriveDailyRows(sorted, maxCost, colorOf), [sorted, maxCost, colorOf]);
   const stats = useMemo(() => deriveDailyStats(data), [data]);
   const models = useMemo(
-    () => data.byModel.filter((m) => m.cost > 0).map((m) => ({ model: m.model, label: shortModel(m.model), color: modelColor(m.model) })),
-    [data.byModel],
+    () => data.byModel.filter((m) => m.cost > 0).map((m) => ({ model: m.model, label: shortModel(m.model), color: colorOf(m.model) })),
+    [data.byModel, colorOf],
   );
 
   return {

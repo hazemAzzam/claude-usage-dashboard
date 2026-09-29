@@ -85,6 +85,8 @@ describe("effortModelGrid", () => {
     expect(grid.cells[2][1].value).toBeNull(); // haiku max
     expect(grid.cells[2][1].label).toBe("—");
     expect(grid.cells[2][1].alpha).toBe(0);
+    expect(grid.cells[2][1].strong).toBe(false);
+    expect(grid.cells.flat().find((c) => c.intensity === 1)?.strong).toBe(true);
   });
 
   it("normalises intensity across filled cells", () => {

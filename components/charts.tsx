@@ -26,7 +26,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 // All chart components are presentational: they receive rows already derived
 // by a hook (hooks/use-*-view.ts) and only map them onto Recharts primitives.
 
-const ACCENT = "hsl(var(--primary))";
+const ACCENT = "oklch(var(--primary))";
 const GRID_TEXT = "text-[11px]";
 
 // ---- shared legend ----
@@ -89,7 +89,7 @@ export function TurnCostBars({ rows }: { rows: TurnRow[] }) {
         />
         <Bar dataKey="costPerMsg" radius={[4, 4, 0, 0]} isAnimationActive={false}>
           {rows.map((r) => (
-            <Cell key={r.label} fill={r.late ? ACCENT : "hsl(var(--muted-foreground) / 0.45)"} />
+            <Cell key={r.label} fill={r.late ? ACCENT : "oklch(var(--muted-foreground) / 0.45)"} />
           ))}
           <LabelList dataKey="costLabel" position="top" className="fill-foreground text-[11px]" />
         </Bar>
@@ -103,7 +103,7 @@ export function PlanValueChart({ plan }: { plan: PlanValue }) {
   const config = {
     cum: { label: "Spend so far", color: ACCENT },
     projected: { label: "Projected", color: ACCENT },
-    plan: { label: "Plan price", color: "hsl(var(--muted-foreground))" },
+    plan: { label: "Plan price", color: "oklch(var(--muted-foreground))" },
   } satisfies ChartConfig;
   return (
     <ChartContainer config={config} className="aspect-auto h-[220px] w-full" role="img" aria-label={`Cumulative API-equivalent spend this month against a $${plan.price} plan`}>
@@ -113,9 +113,9 @@ export function PlanValueChart({ plan }: { plan: PlanValue }) {
         <ChartTooltip content={<ChartTooltipContent labelFormatter={(l) => shortDay(String(l))} formatter={(v) => usdExact(Number(v))} />} />
         <Area type="monotone" dataKey="cum" stroke={ACCENT} strokeWidth={2} fill={ACCENT} fillOpacity={0.14} isAnimationActive={false} connectNulls={false} />
         <Line type="linear" dataKey="projected" stroke={ACCENT} strokeWidth={2} strokeDasharray="4 4" dot={false} isAnimationActive={false} connectNulls={false} />
-        <Line type="linear" dataKey="plan" stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} strokeDasharray="2 3" dot={false} isAnimationActive={false} />
+        <Line type="linear" dataKey="plan" stroke="oklch(var(--muted-foreground))" strokeWidth={1.5} strokeDasharray="2 3" dot={false} isAnimationActive={false} />
         {plan.paidOffDay && plan.paidOffLabel && (
-          <ReferenceLine x={plan.paidOffDay} stroke="hsl(var(--muted-foreground))" label={{ value: plan.paidOffLabel, position: "insideTopLeft", className: "fill-muted-foreground text-[10px]" }} />
+          <ReferenceLine x={plan.paidOffDay} stroke="oklch(var(--muted-foreground))" label={{ value: plan.paidOffLabel, position: "insideTopLeft", className: "fill-muted-foreground text-[10px]" }} />
         )}
       </ComposedChart>
     </ChartContainer>
@@ -125,7 +125,7 @@ export function PlanValueChart({ plan }: { plan: PlanValue }) {
 // ---- daily cost stacked by model (+ optional 7-day average) ----
 export function DailyStackedCost({ rows, models, showAverage = false, label }: { rows: DailyByModelRow[]; models: DailyModelLegend[]; showAverage?: boolean; label: string }) {
   const config: ChartConfig = Object.fromEntries(models.map((m) => [m.model, { label: m.label, color: m.color }]));
-  config.ma7 = { label: "7-day avg", color: "hsl(var(--foreground))" };
+  config.ma7 = { label: "7-day avg", color: "oklch(var(--foreground))" };
   return (
     <ChartContainer config={config} className="aspect-auto h-[240px] w-full" role="img" aria-label={label}>
       <ComposedChart data={rows} margin={{ top: 8, right: 8, left: -4, bottom: 0 }}>
@@ -135,7 +135,7 @@ export function DailyStackedCost({ rows, models, showAverage = false, label }: {
         {models.map((m) => (
           <Bar key={m.model} dataKey={m.model} stackId="cost" fill={m.color} isAnimationActive={false} />
         ))}
-        {showAverage && <Line type="monotone" dataKey="ma7" stroke="hsl(var(--foreground))" strokeWidth={2} dot={false} isAnimationActive={false} />}
+        {showAverage && <Line type="monotone" dataKey="ma7" stroke="oklch(var(--foreground))" strokeWidth={2} dot={false} isAnimationActive={false} />}
       </ComposedChart>
     </ChartContainer>
   );
@@ -168,8 +168,8 @@ export function ParetoCurve({ pareto }: { pareto: Pareto }) {
         <XAxis type="number" dataKey="x" domain={[0, 100]} ticks={[0, 50, 100]} tickFormatter={pct} tickLine={false} axisLine={false} className={GRID_TEXT} />
         <YAxis type="number" domain={[0, 100]} ticks={[0, 50, 100]} tickFormatter={pct} tickLine={false} axisLine={false} width={40} className={GRID_TEXT} />
         <ChartTooltip content={<ChartTooltipContent hideLabel formatter={(v) => `${Number(v).toFixed(0)}% of cost`} />} />
-        <ReferenceLine segment={[{ x: 0, y: 0 }, { x: 100, y: 100 }]} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
-        <ReferenceLine x={pareto.markerX} stroke="hsl(var(--muted-foreground))" strokeDasharray="2 3" label={{ value: "top 10%", position: "insideTopRight", className: "fill-muted-foreground text-[10px]" }} />
+        <ReferenceLine segment={[{ x: 0, y: 0 }, { x: 100, y: 100 }]} stroke="oklch(var(--muted-foreground))" strokeDasharray="3 3" />
+        <ReferenceLine x={pareto.markerX} stroke="oklch(var(--muted-foreground))" strokeDasharray="2 3" label={{ value: "top 10%", position: "insideTopRight", className: "fill-muted-foreground text-[10px]" }} />
         <Area type="monotone" dataKey="y" stroke={ACCENT} strokeWidth={2} fill={ACCENT} fillOpacity={0.14} isAnimationActive={false} />
       </AreaChart>
     </ChartContainer>
@@ -211,14 +211,16 @@ export function SessionScatter({ scatter }: { scatter: ScatterModel }) {
 }
 
 // ---- Compare days ----
-// Slot colours. A is the primary accent, B a light blue: they differ in hue
-// AND lightness, and every use is also labelled with the text "A"/"B".
-export const SLOT_COLOR = { A: "hsl(var(--primary))", B: "hsl(217 90% 72%)" } as const;
+// Slot colours: A = chart-1 (lightest grey), B = chart-3 (mid grey). They differ
+// by lightness only (the neutral theme is monochrome), so every use is also
+// labelled with the text "A"/"B". Badge text: dark on A, light on B.
+export const SLOT_COLOR = { A: "oklch(var(--chart-1))", B: "oklch(var(--chart-3))" } as const;
+const SLOT_TEXT = { A: "text-background", B: "text-foreground" } as const;
 
 export function SlotBadge({ slot }: { slot: "A" | "B" }) {
   return (
     <span
-      className="inline-flex h-4 w-4 items-center justify-center rounded-[4px] font-mono text-[10px] font-semibold text-background"
+      className={`inline-flex h-4 w-4 items-center justify-center rounded-[4px] font-mono text-[10px] font-semibold ${SLOT_TEXT[slot]}`}
       style={{ background: SLOT_COLOR[slot] }}
       aria-hidden
     >

@@ -9,13 +9,13 @@ import { PairedHourBars, DivergingBars, SLOT_COLOR, SlotBadge, TokenMixBars } fr
 import { TOKEN_TYPES, useCompareView, type Finding, type SlotView, type Tone } from "@/hooks/use-compare-view";
 
 const TONE_CLASS: Record<Tone, string> = {
-  warn: "text-amber-400",
-  good: "text-sky-400",
+  warn: "text-destructive",
+  good: "text-foreground",
   neutral: "text-muted-foreground",
 };
 const DOT_CLASS: Record<Finding["tone"], string> = {
-  up: "bg-amber-400",
-  down: "bg-sky-400",
+  up: "bg-destructive",
+  down: "bg-foreground",
   neutral: "bg-muted-foreground/60",
 };
 
@@ -71,7 +71,7 @@ export function CompareView({ data }: { data: Summary }) {
             <span className="flex h-10 w-full items-end">
               <span
                 className="w-full rounded-[2px]"
-                style={{ height: `${d.heightPct}%`, minHeight: 3, background: d.isA ? SLOT_COLOR.A : d.isB ? SLOT_COLOR.B : "hsl(var(--muted-foreground) / 0.4)" }}
+                style={{ height: `${d.heightPct}%`, minHeight: 3, background: d.isA ? SLOT_COLOR.A : d.isB ? SLOT_COLOR.B : "oklch(var(--muted-foreground) / 0.4)" }}
               />
             </span>
             <span className="font-mono text-[10px] tabular-nums">{d.n}</span>

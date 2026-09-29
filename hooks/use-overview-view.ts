@@ -8,7 +8,7 @@ import {
   fmtDelta,
   fmtMultiple,
   fmtShare,
-  modelColor,
+  modelPalette,
   num,
   shortDay,
   shortModel,
@@ -221,9 +221,10 @@ export interface DailyByModel {
 }
 
 export function deriveDailyByModel(s: Summary): DailyByModel {
+  const colorOf = modelPalette(s.allModels);
   const models = s.byModel
     .filter((m) => m.cost > 0)
-    .map((m) => ({ model: m.model, label: shortModel(m.model), color: modelColor(m.model) }));
+    .map((m) => ({ model: m.model, label: shortModel(m.model), color: colorOf(m.model) }));
   const span = daySpan(s);
   // Every calendar day in the span, idle days as $0, so the 7-day average is a true 7 days.
   const dense = span

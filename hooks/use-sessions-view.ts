@@ -2,7 +2,7 @@
 
 import { useDeferredValue, useMemo, useState } from "react";
 import type { SessionRow, Summary } from "@/lib/usage";
-import { fmtShare, modelColor, shortModel, num, usdExact } from "@/lib/format";
+import { fmtShare, modelColor, modelPalette, shortModel, num, usdExact } from "@/lib/format";
 import { cumulative, median, shareOf } from "@/lib/stats";
 import { useSortable } from "@/hooks/use-sortable";
 import { useExpandable } from "@/hooks/use-expandable";
@@ -116,7 +116,7 @@ export function logAxis(values: number[]): LogAxis {
   return { domain: [ticks[0], ticks[ticks.length - 1]], ticks };
 }
 
-export function deriveScatter(sessions: SessionRow[]): SessionScatter {
+export function deriveScatter(sessions: SessionRow[], colorOf: (model: string) => string = modelColor): SessionScatter {
   // Log axes can't show zero, so free/empty sessions are left out.
   const usable = sessions.filter((s) => s.cost > 0 && s.messages > 0);
   // "Typical" = same model AND similar length: opus vs haiku costs differ ~10x.
@@ -150,7 +150,7 @@ export function deriveScatter(sessions: SessionRow[]): SessionScatter {
     else byModel.set(s.model, [pt]);
   }
   const series = [...byModel.entries()]
-    .map(([model, points]) => ({ model, label: shortModel(model), color: modelColor(model), points }))
+    .map(([model, points]) => ({ model, label: shortModel(model), color: colorOf(model), points }))
     .sort((a, b) => b.points.length - a.points.length);
   return {
     series,
@@ -205,7 +205,8 @@ export function useSessionsView(data: Summary) {
 
   // Both charts describe the whole range, so they ignore the table's search/model filters.
   const pareto = useMemo(() => derivePareto(rows), [rows]);
-  const scatter = useMemo(() => deriveScatter(rows), [rows]);
+  const colorOf = useMemo(() => modelPalette(data.allModels), [data.allModels]);
+  const scatter = useMemo(() => deriveScatter(rows, colorOf), [rows, colorOf]);
   const countLabel = sessionCountLabel(filtered.length, rows.length);
 
   return {

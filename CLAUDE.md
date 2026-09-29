@@ -79,12 +79,20 @@ filters live in memory only.
   (effort filter items with per-level cost labels), `parseStats` (card + footer strings), `isNavActive`, `effortLabel`, `viewTitle`.
   `rangeLabel` is a placeholder until mounted (`hooks/use-mounted.ts`) so the
   client-clock default range never causes a hydration mismatch.
-- **`components/shell/*`** — `app-sidebar.tsx` (inset sidebar,
-  `collapsible="icon"`; only `usePathname()` for the active item),
-  `top-bar.tsx` (trigger, breadcrumb, preset segmented control, Ask Claude),
+- **`components/shell/*`** — mirrors shadcn's `dashboard-01` sidebar block
+  (`Sidebar variant="inset" collapsible="icon"`). `app-sidebar.tsx` only
+  composes: `SidebarHeader` (logo `SidebarMenuButton`, icon + "Claude Usage") ›
+  `SidebarContent` [`nav-main.tsx` (primary "Ask Claude" row + the seven view
+  links with `SidebarMenuBadge` counts; the only `usePathname()` use, for
+  active state + `aria-current`), `nav-effort.tsx` (Effort filter group with
+  costs; icon mode shows one filter button), `nav-secondary.tsx` (Refresh,
+  `mt-auto`, spinner/disabled while loading)] › `SidebarFooter`
+  (`nav-source.tsx`: NavUser-shaped data-source row, `~/.claude/projects` +
+  `ParseStats.source` string, no fake user). `top-bar.tsx` is the block's
+  site-header (trigger, vertical `Separator` keeping the `self-center` fix,
+  breadcrumb, preset segmented control, date picker, Ask Claude),
   `date-range-picker.tsx` (popover: presets with day counts, two-month range
-  calendar, Cancel/Apply), `parse-stats.tsx` (sidebar-footer card + Refresh).
-  All presentational.
+  calendar, Cancel/Apply). All presentational.
 
 - **`hooks/use-usage-summary.ts`** — owns fetching `/api/usage` for
   `{start, end, effort}`, in-flight request cancellation, loading/error state,
@@ -195,8 +203,17 @@ filters live in memory only.
   ratios, sorting or insight strings (they only pass values through, call
   format helpers such as `fmtUSDShort` for ticks, and take axis domains/ticks
   from the hook). Model colours come from one
-  function, `modelColor()` in `lib/format.ts` (per model family), so a model has
-  the same colour in every chart and table. **UI/logic rule**: `.tsx` files hold
+  function family in `lib/format.ts`, so a model has the same colour
+  in every chart and table. Colours are shadcn chart tokens only (greys in the
+  neutral theme). Views build `modelPalette(data.allModels)`; `Summary.allModels`
+  is every model in ANY record (ignores date window and effort filter, cost
+  desc then id, collected in `summarize()`'s single pass), so a model keeps
+  its colour across filters and pages. Ranks map to `--chart-1..4` (light to
+  dark); **`--chart-5` (0.269) is never used for series** (about 1.2:1 on the
+  card). The monochrome palette separates at most ~4 series: from the 5th model
+  on the steps repeat (no alpha/pattern cue; not feasible for stacked bars).
+  `modelColor()` is the context-free fallback (opus 1, sonnet 2, haiku 4,
+  unknown 3). Derive functions take an optional `colorOf`. **UI/logic rule**: `.tsx` files hold
   no arithmetic, sorting, filtering, ratio or insight-string building — that
   lives in the exported `derive*` functions above (only trivial format calls
   like `usdExact(x)` are allowed in JSX).
@@ -322,10 +339,31 @@ Tailwind v4, so after `npx shadcn add ...` they must be rewritten by hand:
 `outline-hidden` -> `outline-none`, `in-data-[..]` -> `group-data-[..]`,
 `--spacing(n)` -> rem, and the `cn` import must be `@/lib/utils` (the CLI once
 added the unrelated `cn` npm package). `--sidebar-*` colors are HSL triplets in
-`app/globals.css` (used as `hsl(var(--sidebar-*))`) mapped in
+`app/globals.css` (used as `oklch(var(--sidebar-*))`) mapped in
 `tailwind.config.ts`; `--radius-md` is defined there too because generated
 classes reference it. Older generated files (`button.tsx`) still contain some
 v4 syntax that silently does nothing.
+
+## Theme (shadcn "neutral")
+
+`app/globals.css` holds shadcn's **neutral** theme copied exactly from
+`https://ui.shadcn.com/r/colors/neutral.json` (`cssVars.light` + `.dark`; the
+app forces dark) as oklch **channel triplets** (`--background: 0.145 0 0;`;
+alpha-bearing tokens keep it: `--border: 1 0 0 / 10%;`). `tailwind.config.ts`
+maps opaque tokens as `oklch(var(--x) / <alpha-value>)` and `border`, `input`,
+`sidebar-border` as plain `oklch(var(--x))` — so **never put an opacity
+modifier on them** (`border-border/50` is invalid). Inline styles use
+`oklch(var(--x))` / `oklch(var(--x) / 0.4)`. Chart tokens are greys, so series
+differ by lightness only. `--destructive-foreground` is not in the registry
+and is not defined.
+**No hard-coded colours** in `components/**`, `hooks/**`, `lib/**`: no hex, no
+literal `oklch(<numbers>)`/`hsl(<numbers>)`, no Tailwind palette classes (`amber-400`, `zinc-*`, ...).
+Use tokens (`text-muted-foreground`, `bg-muted`, `bg-primary`,
+`text-destructive`) or `oklch(var(--chart-N) / alpha)` in
+inline styles. Semantics: cost-up/"warn" = `destructive`, "good" = `foreground`
+(arrows stay in the text), Compare A/B = `chart-1`/`chart-3`
+(`SLOT_COLOR`, badge text dark on A / light on B, both >= 7:1), heatmaps = `primary` with alpha. Only `globals.css`,
+`tailwind.config.ts` and the token strings in `lib/format.ts` name colours.
 
 ## Rules
 

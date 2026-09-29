@@ -81,8 +81,8 @@ export function EfficiencyView({ data }: { data: Summary }) {
                         <td
                           key={grid.models[ci].model}
                           title={c.tip}
-                          className="rounded-md px-2 py-2 text-center tabular-nums"
-                          style={{ background: c.alpha > 0 ? `hsl(var(--primary) / ${c.alpha})` : "hsl(var(--muted) / 0.3)" }}
+                          className={`rounded-md px-2 py-2 text-center tabular-nums${c.strong ? " text-primary-foreground" : ""}`}
+                          style={{ background: c.alpha > 0 ? `oklch(var(--primary) / ${c.alpha})` : "oklch(var(--muted) / 0.3)" }}
                         >
                           {c.label}
                         </td>

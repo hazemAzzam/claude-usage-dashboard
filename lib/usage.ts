@@ -227,6 +227,10 @@ export interface Summary {
   byDay: DayBucket[];
   byProject: ProjectRow[];
   byModel: ModelBucket[];
+  // Every model seen in ANY record (ignores the date window and effort
+  // filter), by total cost desc then id. Feeds `modelPalette` so a model keeps
+  // its colour across filters and pages.
+  allModels: string[];
   byEffort: EffortBucket[];
   availableEfforts: Effort[]; // effort levels present in the date window, before the effort filter
   effort: Effort | null; // the effort filter that was applied (echo)
@@ -283,6 +287,7 @@ export function summarize(
   // sessionId but have their own conversation, so they must not advance the
   // main thread's position.
   const sessionPos = new Map<string, number>();
+  const allModelCost = new Map<string, number>(); // every record, before any filter
 
   // Previous window: same length, ending where the selected one starts. Only
   // meaningful when the selection is bounded (from > 0).
@@ -333,6 +338,7 @@ export function summarize(
     const posKey = r.agent ? `${r.session}\0${r.agent}` : r.session;
     const pos = (sessionPos.get(posKey) ?? 0) + 1;
     sessionPos.set(posKey, pos);
+    allModelCost.set(r.model, (allModelCost.get(r.model) ?? 0) + r.cost);
     const effortOk = !effortFilter || r.effort === effortFilter;
     const inRange = r.ts >= from && r.ts <= to;
     const inPrev = hasPrev && r.ts >= prevFrom && r.ts < prevEnd;
@@ -523,6 +529,7 @@ export function summarize(
         topSessions: [...(daySessions.get(day)?.values() ?? [])].sort((x, y) => y.cost - x.cost).slice(0, 5),
       })),
     byProject,
+    allModels: [...allModelCost.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([m]) => m),
     byModel: [...byModel.entries()]
       .map(([model, b]) => {
         const efforts = modelEffort.get(model);

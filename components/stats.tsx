@@ -5,8 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 export { shortModel } from "@/lib/format";
 
 const DELTA_TONE = {
-  good: "bg-emerald-500/15 text-emerald-400",
-  warn: "bg-amber-500/15 text-amber-400",
+  good: "bg-muted text-foreground",
+  warn: "bg-destructive/15 text-destructive",
   neutral: "bg-muted text-muted-foreground",
 } as const;
 

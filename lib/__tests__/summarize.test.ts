@@ -288,3 +288,18 @@ describe("summarize: per-project day x model split", () => {
     expect(sum(models.map((m) => m.cost))).toBeCloseTo(p.byDay[0].cost);
   });
 });
+
+describe("summarize: allModels", () => {
+  it("lists every model seen in any record, ignoring window and effort filters, cost desc then id", () => {
+    const now = at(2026, 9, 20);
+    const records = [
+      rec(2026, 1, 1, "old", { model: "claude-haiku-4-5", cost: 1 }),
+      rec(2026, 9, 19, "a", { model: "claude-opus-4-8", cost: 5, effort: "low" as Effort }),
+      rec(2026, 9, 19, "b", { model: "claude-b", cost: 1 }),
+      rec(2026, 9, 19, "c", { model: "claude-a", cost: 1 }),
+    ];
+    const s = summarize(records, { from: at(2026, 9, 1), to: now }, META, { effort: "high", now });
+    expect(s.allModels).toEqual(["claude-opus-4-8", "claude-a", "claude-b", "claude-haiku-4-5"]);
+    expect(s.byModel.map((m) => m.model)).not.toContain("claude-opus-4-8");
+  });
+});

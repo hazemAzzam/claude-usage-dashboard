@@ -103,15 +103,14 @@ export function effortItems(data: Summary | null, options: Effort[], selected: E
   ];
 }
 
-export type ParseStats = { messages: string; detail: string; footer: string } | null;
+export type ParseStats = { source: string; footer: string } | null;
 
-// Ready-made strings for the sidebar parse card ("38,214 messages" /
-// "Parsed in 412 ms · cache warm") and the page footer.
+// Ready-made strings for the sidebar data-source row ("38,214 messages ·
+// parsed in 412 ms · cache warm") and the page footer.
 export function parseStats(data: Summary | null): ParseStats {
   if (!data) return null;
   return {
-    messages: `${num(data.totals.messages)} messages`,
-    detail: `Parsed in ${data.parseMs} ms · cache ${data.cache}`,
+    source: `${num(data.totals.messages)} messages · parsed in ${data.parseMs} ms · cache ${data.cache}`,
     footer: `Parsed ${tokens(data.totals.messages)} messages in ${data.parseMs} ms · data cached, click Refresh to re-scan · costs are list-price equivalents, not your subscription billing.`,
   };
 }

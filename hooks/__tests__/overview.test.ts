@@ -21,6 +21,7 @@ function summary(o: Partial<Summary>): Summary {
     cacheNetSaved: 0,
     byDay: [],
     byModel: [],
+    allModels: [],
     byEffort: [],
     byDayModel: [],
     turnBuckets: [],
@@ -253,6 +254,7 @@ describe("derivePlanValue", () => {
 
 describe("deriveDailyByModel", () => {
   const s = summary({
+    allModels: ["claude-opus-4-8", "claude-haiku-4-5", "claude-free"],
     byModel: [
       { model: "claude-opus-4-8", ...bucket({ cost: 9 }) },
       { model: "claude-haiku-4-5", ...bucket({ cost: 1 }) },

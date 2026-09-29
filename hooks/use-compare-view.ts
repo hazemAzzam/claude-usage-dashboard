@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { DayBucket, Summary } from "@/lib/usage";
 import { daySpan, zeroDay } from "@/lib/derive";
-import { WEEKDAYS_LONG, addDays, fmtDelta, fmtMultiple, modelColor, num, shortDay, shortModel, usdExact, usdFine, weekdayOf } from "@/lib/format";
+import { WEEKDAYS_LONG, addDays, fmtDelta, fmtMultiple, modelColor, modelPalette, num, shortDay, shortModel, usdExact, usdFine, weekdayOf } from "@/lib/format";
 import { fillDays, pctDelta, shareOf, sum } from "@/lib/stats";
 
 export type Slot = "A" | "B";
@@ -217,7 +217,7 @@ export interface ModelDiffRow {
   negPct: number; // bar to the left (B spent more)
 }
 
-export function modelDiff(A: DayBucket, B: DayBucket): ModelDiffRow[] {
+export function modelDiff(A: DayBucket, B: DayBucket, colorOf: (model: string) => string = modelColor): ModelDiffRow[] {
   const costs = new Map<string, number>();
   for (const m of A.models ?? []) costs.set(m.model, (costs.get(m.model) ?? 0) + m.cost);
   for (const m of B.models ?? []) costs.set(m.model, (costs.get(m.model) ?? 0) - m.cost);
@@ -228,7 +228,7 @@ export function modelDiff(A: DayBucket, B: DayBucket): ModelDiffRow[] {
     .map(({ model, diff }) => ({
       model,
       label: shortModel(model),
-      color: modelColor(model),
+      color: colorOf(model),
       diff,
       diffLabel: signedUsd(diff),
       posPct: diff > 0 ? shareOf(diff, maxAbs) * 100 : 0,
@@ -237,11 +237,13 @@ export function modelDiff(A: DayBucket, B: DayBucket): ModelDiffRow[] {
 }
 
 // ---- cost by token type ----
+// Segments are stacked in this order; steps are picked so neighbours differ
+// most in lightness (chart-2 | chart-4 | chart-1 | chart-3).
 export const TOKEN_TYPES = [
-  { key: "input", label: "Input", color: "#71717a" },
-  { key: "output", label: "Output", color: "#d4d4d8" },
-  { key: "cacheWrite", label: "Cache write", color: "#B69CF7" },
-  { key: "cacheRead", label: "Cache read", color: "#3E9E8A" },
+  { key: "input", label: "Input", color: "oklch(var(--chart-2))" },
+  { key: "output", label: "Output", color: "oklch(var(--chart-4))" },
+  { key: "cacheWrite", label: "Cache write", color: "oklch(var(--chart-1))" },
+  { key: "cacheRead", label: "Cache read", color: "oklch(var(--chart-3))" },
 ] as const;
 
 export interface TokenPart {
@@ -396,6 +398,8 @@ export function useCompareView(summary: Summary) {
     if (t) setRaw((r) => ({ ...r, a: t.a, b: t.b }));
   };
 
+  const colorOf = useMemo(() => modelPalette(summary.allModels), [summary.allModels]);
+
   return {
     hasDays: days.length > 0,
     needsSecondDay: sel.b === null,
@@ -408,7 +412,7 @@ export function useCompareView(summary: Summary) {
     hours: useMemo(() => pairHours(A, B), [A, B]),
     hoursSummary: useMemo(() => hoursSummary(A, B), [A, B]),
     findings: useMemo(() => whatChanged(A, B), [A, B]),
-    models: useMemo(() => modelDiff(A, B), [A, B]),
+    models: useMemo(() => modelDiff(A, B, colorOf), [A, B, colorOf]),
     tokenRows: useMemo(() => tokenTypeRows(A, B), [A, B]),
     tops: useMemo(() => topSessionRows(A, B), [A, B]),
     pick,

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ProjectRow, SessionRow, Summary } from "@/lib/usage";
-import { fmtShare, modelColor, num, shortModel, usdExact, usdFine } from "@/lib/format";
+import { fmtShare, modelColor, modelPalette, num, shortModel, usdExact, usdFine } from "@/lib/format";
 import { fillDays, safeDiv, shareOf } from "@/lib/stats";
 import { daySpan, shortSessionId, type DailyByModelRow, type DailyModelLegend } from "@/lib/derive";
 
@@ -56,9 +56,10 @@ export function deriveProjectDetail(
   totalCost: number,
   allSessions: SessionRow[],
   span: { from: string; to: string } | null,
+  colorOf: (model: string) => string = modelColor,
 ): ProjectDetail {
   const models = p.models.filter((m) => m.cost > 0);
-  const legend = models.map((m) => ({ model: m.model, label: shortModel(m.model), color: modelColor(m.model) }));
+  const legend = models.map((m) => ({ model: m.model, label: shortModel(m.model), color: colorOf(m.model) }));
   const top = models[0]?.cost ?? 0;
   const recent = allSessions
     .filter((s) => s.project === p.project)
@@ -82,7 +83,7 @@ export function deriveProjectDetail(
     byModel: models.map((m) => ({
       model: m.model,
       label: shortModel(m.model),
-      color: modelColor(m.model),
+      color: colorOf(m.model),
       messages: m.messages,
       costLabel: usdExact(m.cost),
       widthPct: shareOf(m.cost, top) * 100,
@@ -93,7 +94,7 @@ export function deriveProjectDetail(
       id: shortSessionId(s.session),
       day: s.day,
       label: shortModel(s.model),
-      color: modelColor(s.model),
+      color: colorOf(s.model),
       messages: s.messages,
       costLabel: usdExact(s.cost),
     })),
@@ -113,9 +114,10 @@ export function useProjectsView(data: Summary) {
   const selected = resolveSelected(picked, visible);
   const active = projects.find((p) => p.project === selected);
   const span = useMemo(() => daySpan(data), [data]);
+  const colorOf = useMemo(() => modelPalette(data.allModels), [data.allModels]);
   const detail = useMemo(
-    () => (active ? deriveProjectDetail(active, data.totals.cost, data.allSessions, span) : null),
-    [active, data.totals.cost, data.allSessions, span],
+    () => (active ? deriveProjectDetail(active, data.totals.cost, data.allSessions, span, colorOf) : null),
+    [active, data.totals.cost, data.allSessions, span, colorOf],
   );
   const countLabel = visible.length === projects.length ? `${num(projects.length)} projects` : `${num(visible.length)} of ${num(projects.length)} projects`;
 

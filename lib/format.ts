@@ -57,46 +57,35 @@ export function shortModel(m: string): string {
 // stay distinguishable in stacked bars and legends. Stateless and
 // deterministic: the shift depends only on the id's version digits, so a model
 // has the same colour in every chart and table.
-const FAMILY_COLORS: Array<[string, string]> = [
-  ["opus", "#E07B53"],
-  ["sonnet", "#6C9CF0"],
-  ["fable", "#B69CF7"],
-  ["haiku", "#3E9E8A"],
+// Model series colours come from the shadcn chart tokens (greys in the neutral
+// theme), never hard-coded colours. Only chart-1..4 are used for series:
+// chart-5 (0.269) is nearly invisible on the card background. `modelPalette`
+// ranks models in the order given (pass `Summary.allModels`: cost desc, all
+// records, so colours are stable across filters and pages) and assigns steps
+// light -> dark. Beyond 4 models steps repeat: the monochrome palette
+// separates at most ~4 series (documented in CLAUDE.md).
+const SERIES_STEPS = 4;
+const FAMILY_STEP: Array<[string, number]> = [
+  ["opus", 1],
+  ["sonnet", 2],
+  ["haiku", 4],
 ];
-const FALLBACK_COLORS = ["#E8B24A", "#8FBF6A", "#D66FA0", "#7FB7C4"];
-const LIGHTNESS_SHIFTS = [0, -10, 10, -18, 18];
+const chartVar = (step: number) => `oklch(var(--chart-${step}))`;
+const normModel = (model: string) => model.toLowerCase().replace(/-\d{8}$/, "");
 
-function hexToHsl(hex: string): [number, number, number] {
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  const d = max - min;
-  if (d === 0) return [0, 0, l * 100];
-  const s = d / (1 - Math.abs(2 * l - 1));
-  let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-  h *= 60;
-  return [h < 0 ? h + 360 : h, s * 100, l * 100];
+// Context-free fallback: one step per known family, unknown -> chart-3.
+export function modelColor(model: string): string {
+  const id = normModel(model);
+  return chartVar(FAMILY_STEP.find(([f]) => id.includes(f))?.[1] ?? 3);
 }
 
-export function modelColor(model: string): string {
-  const id = model.toLowerCase().replace(/-\d{8}$/, "");
-  const family = FAMILY_COLORS.find(([f]) => id.includes(f));
-  let base: string;
-  if (family) base = family[1];
-  else {
-    let h = 0;
-    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-    return FALLBACK_COLORS[h % FALLBACK_COLORS.length];
+export function modelPalette(models: string[]): (model: string) => string {
+  const color = new Map<string, string>();
+  for (const m of models) {
+    const id = normModel(m);
+    if (!color.has(id)) color.set(id, chartVar((color.size % SERIES_STEPS) + 1));
   }
-  const nums = id.match(/\d+/g) ?? [];
-  const version = Number(nums[0] ?? 0) * 10 + Number(nums[1] ?? 0);
-  const shift = LIGHTNESS_SHIFTS[version % LIGHTNESS_SHIFTS.length];
-  if (shift === 0) return base;
-  const [h, s, l] = hexToHsl(base);
-  return `hsl(${h.toFixed(0)} ${s.toFixed(0)}% ${Math.min(80, Math.max(42, l + shift)).toFixed(0)}%)`;
+  return (model) => color.get(normModel(model)) ?? modelColor(model);
 }
 
 // "62%" from a 0..1 share.

@@ -330,7 +330,7 @@ claude-usage-dashboard/
 │   ├── ui/                   # shadcn primitives
 │   ├── charts.tsx            # Recharts wrappers (sparkline, turn-cost bars, plan value, stacked daily cost, Pareto, scatter)
 │   ├── chat-panel.tsx        # Streaming chat UI
-│   ├── shell/                # app-sidebar, top-bar, date-range-picker, parse-stats — presentational
+│   ├── shell/                # app-sidebar, nav-main/effort/secondary/source, top-bar, date-range-picker — presentational
 │   ├── heatmap.tsx           # Weekday × hour cost heatmap with marginal totals
 │   └── stats.tsx             # Shared atoms (KPIs, tables, sort headers)
 ├── lib/
