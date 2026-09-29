@@ -81,8 +81,8 @@ export function EfficiencyView({ data }: { data: Summary }) {
                         <td
                           key={grid.models[ci].model}
                           title={c.tip}
-                          className={`rounded-md px-2 py-2 text-center tabular-nums${c.strong ? " text-primary-foreground" : ""}`}
-                          style={{ background: c.alpha > 0 ? `oklch(var(--primary) / ${c.alpha})` : "oklch(var(--muted) / 0.3)" }}
+                          className={`rounded-md px-2 py-2 text-center font-mono tabular-nums${c.strong ? " text-primary-foreground" : ""}`}
+                          style={{ background: c.alpha > 0 ? `oklch(var(--primary) / ${c.alpha})` : "oklch(var(--divider))" }}
                         >
                           {c.label}
                         </td>
@@ -106,12 +106,12 @@ function MetricCells({ m, muted }: { m: EfficiencyMetrics; muted?: boolean }) {
   const tone = muted ? "text-muted-foreground" : "";
   return (
     <>
-      <TableCell className="text-right tabular-nums text-muted-foreground">{num(m.messages)}</TableCell>
-      <TableCell className="text-right tabular-nums text-muted-foreground">{m.outShareLabel}</TableCell>
-      <TableCell className="text-right tabular-nums text-muted-foreground">{m.cacheShareLabel}</TableCell>
-      <TableCell className={`text-right tabular-nums ${tone}`}>{m.perDollarLabel}</TableCell>
-      <TableCell className={`text-right tabular-nums ${tone}`}>{m.costPerMsgLabel}</TableCell>
-      <TableCell className={`text-right tabular-nums ${muted ? "text-muted-foreground" : "font-medium"}`}>{m.costLabel}</TableCell>
+      <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{num(m.messages)}</TableCell>
+      <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{m.outShareLabel}</TableCell>
+      <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{m.cacheShareLabel}</TableCell>
+      <TableCell className={`text-right font-mono tabular-nums ${tone}`}>{m.perDollarLabel}</TableCell>
+      <TableCell className={`text-right font-mono tabular-nums ${tone}`}>{m.costPerMsgLabel}</TableCell>
+      <TableCell className={`text-right font-mono tabular-nums ${muted ? "text-muted-foreground" : "font-medium"}`}>{m.costLabel}</TableCell>
     </>
   );
 }
@@ -148,7 +148,7 @@ function ModelRow({ m, open, onToggle }: { m: EfficiencyModelRow; open: boolean;
       {open &&
         expandable &&
         m.efforts.map((e) => (
-          <TableRow key={e.effort} className="bg-muted/30 text-xs hover:bg-muted/30">
+          <TableRow key={e.effort} className="bg-row-detail text-xs hover:bg-row-detail">
             <TableCell className="pl-10 text-muted-foreground">{e.label}</TableCell>
             <MetricCells m={e} muted />
           </TableRow>

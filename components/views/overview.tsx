@@ -38,7 +38,7 @@ export function OverviewView({ data }: { data: Summary }) {
           </CardHeader>
           <CardContent className="space-y-3">
             {turn.hasData ? <TurnCostBars rows={turn.rows} /> : <Empty />}
-            {turn.callout && <p className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">{turn.callout}</p>}
+            {turn.callout && <p className="rounded-md bg-muted px-3 py-2 text-xs text-soft-foreground">{turn.callout}</p>}
           </CardContent>
         </Card>
 
@@ -63,7 +63,7 @@ export function OverviewView({ data }: { data: Summary }) {
                 ))}
               </ToggleGroup>
               <span className="text-xs text-muted-foreground">
-                <span className="text-sm font-semibold text-foreground">{plan.multipleLabel}</span> of a ${plan.price} plan
+                <span className="font-mono text-sm font-semibold tabular-nums text-foreground">{plan.multipleLabel}</span> of a ${plan.price} plan
               </span>
             </div>
           </CardHeader>

@@ -21,7 +21,7 @@ export function ProjectsView({ data }: { data: Summary }) {
         <CardHeader className="gap-2">
           <div className="flex items-baseline justify-between">
             <CardTitle className="text-sm font-medium">Projects</CardTitle>
-            <span className="text-xs text-muted-foreground">{countLabel}</span>
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">{countLabel}</span>
           </div>
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter projects…" aria-label="Filter projects" className="h-8" />
         </CardHeader>
@@ -38,12 +38,12 @@ export function ProjectsView({ data }: { data: Summary }) {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-sm font-medium">{p.project}</span>
-                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{p.costLabel}</span>
+                      <span className="shrink-0 text-xs font-mono tabular-nums text-muted-foreground">{p.costLabel}</span>
                     </div>
                     <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-muted">
                       <div className="h-full rounded-full bg-primary/70" style={{ width: `${p.widthPct}%` }} />
                     </div>
-                    <div className="mt-1 text-[11px] text-muted-foreground">{p.sessionsLabel}</div>
+                    <div className="mt-1 font-mono text-[11px] tabular-nums text-muted-foreground">{p.sessionsLabel}</div>
                   </button>
                 </li>
               ))}
@@ -58,7 +58,7 @@ export function ProjectsView({ data }: { data: Summary }) {
         <div className="space-y-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg font-semibold tracking-tight">{detail.project}</h2>
-            <span className="text-sm text-muted-foreground">{detail.shareLabel}</span>
+            <span className="font-mono text-sm tabular-nums text-muted-foreground">{detail.shareLabel}</span>
           </div>
 
           <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -108,8 +108,8 @@ export function ProjectsView({ data }: { data: Summary }) {
                             <div className="h-full rounded-full" style={{ width: `${m.widthPct}%`, background: m.color }} />
                           </div>
                         </TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">{num(m.messages)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{m.costLabel}</TableCell>
+                        <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{num(m.messages)}</TableCell>
+                        <TableCell className="text-right font-mono tabular-nums">{m.costLabel}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -146,8 +146,8 @@ export function ProjectsView({ data }: { data: Summary }) {
                             {s.label}
                           </span>
                         </TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">{num(s.messages)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{s.costLabel}</TableCell>
+                        <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{num(s.messages)}</TableCell>
+                        <TableCell className="text-right font-mono tabular-nums">{s.costLabel}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

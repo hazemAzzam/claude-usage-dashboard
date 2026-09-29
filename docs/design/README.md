@@ -21,4 +21,4 @@ Read them for layout, hierarchy and which insight each chart carries. Don't use 
 
 ## Colours and sidebar in the implementation
 
-The mockups use a custom warm palette. The implementation deliberately does not: it uses shadcn's stock **neutral** theme (tokens in `app/globals.css`, chart colours `--chart-1..5`) and shadcn's `dashboard-01` sidebar structure (inset variant, NavMain / NavSecondary / footer row). Take layout, hierarchy and insights from the mockups, but not their hex colours. See "Theme" in `CLAUDE.md`.
+The implementation's tokens **mirror the mockups' palette**: every hex in these files is a token in `app/globals.css` (oklch triplets, hex kept in comments), mapped in `tailwind.config.ts`. See "Theme" in `CLAUDE.md` for the token-to-hex table and roles. Components are shadcn's, with the `dashboard-01` sidebar structure (inset variant, NavMain / NavSecondary / footer row).

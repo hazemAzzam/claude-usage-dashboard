@@ -56,7 +56,7 @@ export function Heatmap({ model }: { model: HeatmapModel }) {
                   key={c.hour}
                   title={c.tip}
                   className="aspect-square flex-1 rounded-[3px] ring-1 ring-inset ring-border"
-                  style={{ background: c.alpha > 0 ? `oklch(var(--primary) / ${c.alpha})` : "oklch(var(--muted) / 0.4)" }}
+                  style={{ background: c.alpha > 0 ? `oklch(var(--primary) / ${c.alpha})` : "oklch(var(--divider))" }}
                 />
               ))}
             </div>
@@ -64,7 +64,7 @@ export function Heatmap({ model }: { model: HeatmapModel }) {
               <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
                 <div className="h-full rounded-full bg-primary/70" style={{ width: `${row.totalPct}%` }} />
               </div>
-              <span className="w-12 text-right text-[11px] tabular-nums text-muted-foreground">{row.totalLabel}</span>
+              <span className="w-12 text-right text-[11px] font-mono tabular-nums text-muted-foreground">{row.totalLabel}</span>
             </div>
           </div>
         ))}

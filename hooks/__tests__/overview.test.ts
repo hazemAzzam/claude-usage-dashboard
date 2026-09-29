@@ -143,14 +143,15 @@ describe("deriveSubtitle", () => {
 describe("deriveTurnCost", () => {
   const mk = (label: string, lo: number, cost: number, messages: number) => ({ label, lo, hi: null, ...bucket({ cost, messages }) });
   const s = summary({
-    turnBuckets: [mk("1–25", 1, 10, 100), mk("26–50", 26, 10, 50), mk("151–250", 151, 30, 100), mk("251+", 251, 30, 100)] as Summary["turnBuckets"],
+    turnBuckets: [mk("1–25", 1, 10, 100), mk("26–50", 26, 10, 50), mk("101–150", 101, 0, 0), mk("151–250", 151, 30, 100), mk("251+", 251, 30, 100)] as Summary["turnBuckets"],
   });
 
   it("computes cost per message and share of spend per bucket", () => {
     const t = deriveTurnCost(s);
-    expect(t.rows.map((r) => r.costPerMsg)).toEqual([0.1, 0.2, 0.3, 0.3]);
+    expect(t.rows.map((r) => r.costPerMsg)).toEqual([0.1, 0.2, 0, 0.3, 0.3]);
     expect(t.rows[0].share).toBeCloseTo(10 / 80);
-    expect(t.rows.map((r) => r.late)).toEqual([false, false, true, true]);
+    expect(t.rows.map((r) => r.late)).toEqual([false, false, false, true, true]);
+    expect(t.rows.map((r) => r.tone)).toEqual(["early", "early", "mid", "late", "late"]);
   });
 
   it("derives the late-turn multiple and share, and suggests /compact", () => {

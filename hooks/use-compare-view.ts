@@ -238,12 +238,12 @@ export function modelDiff(A: DayBucket, B: DayBucket, colorOf: (model: string) =
 
 // ---- cost by token type ----
 // Segments are stacked in this order; steps are picked so neighbours differ
-// most in lightness (chart-2 | chart-4 | chart-1 | chart-3).
+// (mockup choices: input grey, output light grey, cache write violet, cache read teal).
 export const TOKEN_TYPES = [
-  { key: "input", label: "Input", color: "oklch(var(--chart-2))" },
-  { key: "output", label: "Output", color: "oklch(var(--chart-4))" },
-  { key: "cacheWrite", label: "Cache write", color: "oklch(var(--chart-1))" },
-  { key: "cacheRead", label: "Cache read", color: "oklch(var(--chart-3))" },
+  { key: "input", label: "Input", color: "oklch(var(--token-input))" },
+  { key: "output", label: "Output", color: "oklch(var(--token-output))" },
+  { key: "cacheWrite", label: "Cache write", color: "oklch(var(--token-cache-write))" },
+  { key: "cacheRead", label: "Cache read", color: "oklch(var(--token-cache-read))" },
 ] as const;
 
 export interface TokenPart {

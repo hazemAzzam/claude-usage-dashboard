@@ -47,11 +47,11 @@ export function SessionsView({ data }: { data: Summary }) {
                 {pareto.top10Label && pareto.top20Label ? (
                   <div className="flex gap-6">
                     <div>
-                      <div className="text-2xl font-semibold tabular-nums">{pareto.top10Label}</div>
+                      <div className="text-2xl font-semibold font-mono tabular-nums">{pareto.top10Label}</div>
                       <div className="text-xs text-muted-foreground">of cost from the top 10% of sessions</div>
                     </div>
                     <div>
-                      <div className="text-2xl font-semibold tabular-nums">{pareto.top20Label}</div>
+                      <div className="text-2xl font-semibold font-mono tabular-nums">{pareto.top20Label}</div>
                       <div className="text-xs text-muted-foreground">from the top 20%</div>
                     </div>
                   </div>
@@ -81,7 +81,7 @@ export function SessionsView({ data }: { data: Summary }) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <CardTitle className="text-sm font-medium">All sessions</CardTitle>
-              <p className="mt-1 text-xs text-muted-foreground">{countLabel}</p>
+              <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">{countLabel}</p>
             </div>
             <Input
               value={query}
@@ -170,16 +170,16 @@ function Row({ s, open, onToggle }: { s: SessionRow; open: boolean; onToggle: ()
           </Badge>
           {s.models.length > 1 && <span className="ml-1 text-[11px] text-muted-foreground">{extraModelsLabel(s)}</span>}
         </TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">{num(s.messages)}</TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(s.input)}</TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(s.output)}</TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(s.cacheRead)}</TableCell>
-        <TableCell className="text-right font-medium tabular-nums">{usdExact(s.cost)}</TableCell>
+        <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{num(s.messages)}</TableCell>
+        <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{tokens(s.input)}</TableCell>
+        <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{tokens(s.output)}</TableCell>
+        <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{tokens(s.cacheRead)}</TableCell>
+        <TableCell className="text-right font-medium font-mono tabular-nums">{usdExact(s.cost)}</TableCell>
       </TableRow>
       {open &&
         expandable &&
         s.modelBreakdown.map((m) => (
-          <TableRow key={m.model} className="bg-muted/30 hover:bg-muted/30 text-xs">
+          <TableRow key={m.model} className="bg-row-detail hover:bg-row-detail text-xs">
             <TableCell />
             <TableCell />
             <TableCell />
@@ -188,11 +188,11 @@ function Row({ s, open, onToggle }: { s: SessionRow; open: boolean; onToggle: ()
                 {shortModel(m.model)}
               </Badge>
             </TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">{num(m.messages)}</TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(m.input)}</TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(m.output)}</TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(m.cacheRead)}</TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">{usdExact(m.cost)}</TableCell>
+            <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{num(m.messages)}</TableCell>
+            <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{tokens(m.input)}</TableCell>
+            <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{tokens(m.output)}</TableCell>
+            <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{tokens(m.cacheRead)}</TableCell>
+            <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{usdExact(m.cost)}</TableCell>
           </TableRow>
         ))}
     </>

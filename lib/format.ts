@@ -52,40 +52,59 @@ export function shortModel(m: string): string {
   return m.replace(/^claude-/, "").replace(/-\d{8}$/, "");
 }
 
-// One colour per model FAMILY (matches the design mockups), with lightness
-// nudged per version so two models of the same family (opus-4-1 vs opus-4-8)
-// stay distinguishable in stacked bars and legends. Stateless and
-// deterministic: the shift depends only on the id's version digits, so a model
-// has the same colour in every chart and table.
-// Model series colours come from the shadcn chart tokens (greys in the neutral
-// theme), never hard-coded colours. Only chart-1..4 are used for series:
-// chart-5 (0.269) is nearly invisible on the card background. `modelPalette`
-// ranks models in the order given (pass `Summary.allModels`: cost desc, all
-// records, so colours are stable across filters and pages) and assigns steps
-// light -> dark. Beyond 4 models steps repeat: the monochrome palette
-// separates at most ~4 series (documented in CLAUDE.md).
-const SERIES_STEPS = 4;
-const FAMILY_STEP: Array<[string, number]> = [
+// One colour per model FAMILY (matches the design mockups): opus chart-1,
+// sonnet chart-2, fable chart-3, haiku chart-4, anything else chart-5. The
+// family colour is fixed by construction, so it is the same on every page and
+// under every filter. Several versions of one family (opus-4-1 vs opus-4-8)
+// are told apart by an alpha step of the family colour, assigned in the order
+// `modelPalette` receives them (pass `Summary.allModels`: cost desc over ALL
+// records, so a version keeps its step across filters): the first version is
+// full strength, later ones 0.72, 0.5, 0.36 (then repeat 0.36). Colours are
+// tokens only, never hard-coded.
+const FAMILY_CHART: Array<[string, number]> = [
   ["opus", 1],
   ["sonnet", 2],
+  ["fable", 3],
   ["haiku", 4],
 ];
-const chartVar = (step: number) => `oklch(var(--chart-${step}))`;
+const OTHER_CHART = 5;
+const VERSION_ALPHA = [1, 0.72, 0.5, 0.36];
 const normModel = (model: string) => model.toLowerCase().replace(/-\d{8}$/, "");
+const familyChart = (id: string) => FAMILY_CHART.find(([f]) => id.includes(f))?.[1] ?? OTHER_CHART;
+const chartColor = (step: number, alpha = 1) =>
+  alpha >= 1 ? `oklch(var(--chart-${step}))` : `oklch(var(--chart-${step}) / ${alpha})`;
 
-// Context-free fallback: one step per known family, unknown -> chart-3.
+// Context-free fallback: the family colour at full strength.
 export function modelColor(model: string): string {
-  const id = normModel(model);
-  return chartVar(FAMILY_STEP.find(([f]) => id.includes(f))?.[1] ?? 3);
+  return chartColor(familyChart(normModel(model)));
 }
 
 export function modelPalette(models: string[]): (model: string) => string {
   const color = new Map<string, string>();
+  const perFamily = new Map<number, number>();
   for (const m of models) {
     const id = normModel(m);
-    if (!color.has(id)) color.set(id, chartVar((color.size % SERIES_STEPS) + 1));
+    if (color.has(id)) continue;
+    const step = familyChart(id);
+    const rank = perFamily.get(step) ?? 0;
+    perFamily.set(step, rank + 1);
+    color.set(id, chartColor(step, VERSION_ALPHA[Math.min(rank, VERSION_ALPHA.length - 1)]));
   }
   return (model) => color.get(normModel(model)) ?? modelColor(model);
+}
+
+// Effort-level dot/bar colour (mockups: low -> max ramp from dim grey to the
+// accent). `null` is the "All efforts" row. Tokens only.
+const EFFORT_TOKEN: Record<string, string> = {
+  low: "effort-1",
+  medium: "effort-2",
+  high: "effort-3",
+  xhigh: "effort-4",
+  max: "effort-5",
+  unknown: "effort-unknown",
+};
+export function effortColor(effort: string | null): string {
+  return `oklch(var(--${effort === null ? "effort-all" : (EFFORT_TOKEN[effort] ?? "effort-unknown")}))`;
 }
 
 // "62%" from a 0..1 share.

@@ -96,6 +96,7 @@ export function deriveSubtitle(s: Summary): string {
 export interface TurnRow {
   label: string;
   late: boolean; // turn 151+ (highlighted; feeds the /compact callout)
+  tone: "early" | "mid" | "late"; // bar shade: turns <101, 101-150, 151+ (mockup)
   messages: number;
   costPerMsg: number;
   costLabel: string;
@@ -112,13 +113,14 @@ export interface TurnCost {
 }
 
 const LATE_FROM = 151;
+const MID_FROM = 101;
 
 export function deriveTurnCost(s: Summary): TurnCost {
   const total = sum(s.turnBuckets.map((b) => b.cost));
   const rows = s.turnBuckets.map((b) => {
     const costPerMsg = safeDiv(b.cost, b.messages);
     const share = shareOf(b.cost, total);
-    return { label: b.label, late: b.lo >= LATE_FROM, messages: b.messages, costPerMsg, costLabel: usdFine(costPerMsg), share, shareLabel: fmtShare(share) };
+    return { label: b.label, late: b.lo >= LATE_FROM, tone: (b.lo >= LATE_FROM ? "late" : b.lo >= MID_FROM ? "mid" : "early") as TurnRow["tone"], messages: b.messages, costPerMsg, costLabel: usdFine(costPerMsg), share, shareLabel: fmtShare(share) };
   });
   const hasData = s.turnBuckets.some((b) => b.messages > 0);
   const late = s.turnBuckets.filter((b) => b.lo >= LATE_FROM);

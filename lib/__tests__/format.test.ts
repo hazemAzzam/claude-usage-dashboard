@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { dayKeyOf, fmtDelta, fmtMultiple, fmtShare, fmtUSDShort, modelColor, modelPalette, shortModel } from "../format";
+import { dayKeyOf, fmtDelta, fmtMultiple, fmtShare, fmtUSDShort, modelColor,
+  effortColor, modelPalette, shortModel } from "../format";
 
 describe("fmtDelta", () => {
   it("carries the direction as an arrow, not just colour", () => {
@@ -23,12 +24,14 @@ describe("fmtShare / fmtMultiple", () => {
 
 describe("modelColor / shortModel", () => {
   it("colours by family regardless of version or date suffix", () => {
-    expect(new Set(["opus", "sonnet", "haiku"].map((f) => modelColor(`claude-${f}-4`))).size).toBe(3);
-    expect(modelColor("claude-opus-4-8-20250101")).toBe(modelColor("claude-opus-4-8"));
+    expect(modelColor("claude-opus-4-8-20250101")).toBe("oklch(var(--chart-1))");
+    expect(modelColor("claude-opus-4-8-20250101")).toBe(modelColor("claude-opus-4-1"));
+    expect(modelColor("claude-sonnet-4-5")).toBe("oklch(var(--chart-2))");
+    expect(modelColor("claude-fable-1")).toBe("oklch(var(--chart-3))");
+    expect(modelColor("claude-haiku-4-5")).toBe("oklch(var(--chart-4))");
   });
-  it("gives unknown models a stable colour", () => {
-    expect(modelColor("mystery-model")).toBe(modelColor("mystery-model"));
-    expect(modelColor("mystery-model")).toBe("oklch(var(--chart-3))");
+  it("gives unknown models the 'other' colour", () => {
+    expect(modelColor("mystery-model")).toBe("oklch(var(--chart-5))");
   });
   it("shortModel strips the prefix and date", () => {
     expect(shortModel("claude-opus-4-8-20250101")).toBe("opus-4-8");
@@ -37,23 +40,37 @@ describe("modelColor / shortModel", () => {
 
 describe("modelPalette", () => {
   const all = ["claude-opus-4-8", "claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-5"];
-  it("ranks models in the given order onto chart-1..4, never chart-5", () => {
+  it("fixes the colour by family and steps alpha for extra versions in input order", () => {
     const p = modelPalette(all);
-    expect(all.map(p)).toEqual(["oklch(var(--chart-1))", "oklch(var(--chart-2))", "oklch(var(--chart-3))", "oklch(var(--chart-4))"]);
+    expect(all.map(p)).toEqual([
+      "oklch(var(--chart-1))",
+      "oklch(var(--chart-2))",
+      "oklch(var(--chart-4))",
+      "oklch(var(--chart-1) / 0.72)",
+    ]);
     expect(p("claude-opus-4-8-20250101")).toBe(p("claude-opus-4-8"));
   });
   it("is independent of any per-view filtering (same input, same colours)", () => {
     expect(modelPalette(all)("claude-haiku-4-5")).toBe(modelPalette([...all])("claude-haiku-4-5"));
   });
-  it("repeats the four steps beyond four models", () => {
-    const many = Array.from({ length: 6 }, (_, i) => `m${i}`);
+  it("clamps the alpha step beyond four versions of a family", () => {
+    const many = Array.from({ length: 6 }, (_, i) => `claude-opus-${i}`);
     const p = modelPalette(many);
-    expect(p("m4")).toBe(p("m0"));
-    expect(many.every((m) => /^oklch\(var\(--chart-[1-4]\)\)$/.test(p(m)))).toBe(true);
+    expect(p("claude-opus-3")).toBe("oklch(var(--chart-1) / 0.36)");
+    expect(p("claude-opus-5")).toBe(p("claude-opus-3"));
   });
-  it("falls back to the family colour for models outside the set, unknown -> chart-3", () => {
+  it("falls back to the family colour for models outside the set", () => {
     expect(modelPalette([])("claude-opus-4-8")).toBe(modelColor("claude-opus-4-8"));
-    expect(modelColor("mystery")).toBe("oklch(var(--chart-3))");
+    expect(modelColor("mystery")).toBe("oklch(var(--chart-5))");
+  });
+});
+
+describe("effortColor", () => {
+  it("maps each level and 'all' onto its token", () => {
+    expect(effortColor("low")).toBe("oklch(var(--effort-1))");
+    expect(effortColor("max")).toBe("oklch(var(--effort-5))");
+    expect(effortColor("weird")).toBe("oklch(var(--effort-unknown))");
+    expect(effortColor(null)).toBe("oklch(var(--effort-all))");
   });
 });
 

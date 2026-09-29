@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/sidebar";
 import type { EffortItem } from "@/hooks/use-dashboard";
 import type { Effort } from "@/lib/effort";
+import { effortColor } from "@/lib/format";
 
 // "Effort" filter group. Expanded: one row per level with its cost. Icon mode
 // hides the list and shows a single filter button that re-expands the sidebar
@@ -36,8 +37,9 @@ export function NavEffort({
             {items.map((item) => (
               <SidebarMenuItem key={item.key ?? "all"}>
                 <SidebarMenuButton isActive={item.active} aria-pressed={item.active} onClick={() => onSelect(item.key)}>
+                  <span className="size-1.5 shrink-0 rounded-full" style={{ background: effortColor(item.key) }} aria-hidden />
                   <span>{item.label}</span>
-                  <span className="ml-auto font-mono text-[11px] text-muted-foreground">{item.costLabel}</span>
+                  <span className="ml-auto font-mono text-[11px] tabular-nums text-subtle-foreground">{item.costLabel}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}

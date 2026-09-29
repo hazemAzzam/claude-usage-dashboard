@@ -204,16 +204,16 @@ filters live in memory only.
   format helpers such as `fmtUSDShort` for ticks, and take axis domains/ticks
   from the hook). Model colours come from one
   function family in `lib/format.ts`, so a model has the same colour
-  in every chart and table. Colours are shadcn chart tokens only (greys in the
-  neutral theme). Views build `modelPalette(data.allModels)`; `Summary.allModels`
-  is every model in ANY record (ignores date window and effort filter, cost
-  desc then id, collected in `summarize()`'s single pass), so a model keeps
-  its colour across filters and pages. Ranks map to `--chart-1..4` (light to
-  dark); **`--chart-5` (0.269) is never used for series** (about 1.2:1 on the
-  card). The monochrome palette separates at most ~4 series: from the 5th model
-  on the steps repeat (no alpha/pattern cue; not feasible for stacked bars).
-  `modelColor()` is the context-free fallback (opus 1, sonnet 2, haiku 4,
-  unknown 3). Derive functions take an optional `colorOf`. **UI/logic rule**: `.tsx` files hold
+  in every chart and table. Colours are chart tokens by model FAMILY (opus
+  chart-1, sonnet chart-2, fable chart-3, haiku chart-4, other chart-5), so a
+  family's colour is fixed by construction. Views build
+  `modelPalette(data.allModels)`; `Summary.allModels` is every model in ANY
+  record (ignores date window and effort filter, cost desc then id, collected in
+  `summarize()`'s single pass). Several versions of one family are told apart
+  by an alpha step of the family colour (1, 0.72, 0.5, 0.36) in `allModels`
+  order, so a version keeps its step across filters and pages.
+  `modelColor()` is the context-free fallback (family colour, full strength;
+  unknown = chart-5). Derive functions take an optional `colorOf`. **UI/logic rule**: `.tsx` files hold
   no arithmetic, sorting, filtering, ratio or insight-string building — that
   lives in the exported `derive*` functions above (only trivial format calls
   like `usdExact(x)` are allowed in JSX).
@@ -344,26 +344,56 @@ added the unrelated `cn` npm package). `--sidebar-*` colors are HSL triplets in
 classes reference it. Older generated files (`button.tsx`) still contain some
 v4 syntax that silently does nothing.
 
-## Theme (shadcn "neutral")
+## Theme (the design mockups' palette)
 
-`app/globals.css` holds shadcn's **neutral** theme copied exactly from
-`https://ui.shadcn.com/r/colors/neutral.json` (`cssVars.light` + `.dark`; the
-app forces dark) as oklch **channel triplets** (`--background: 0.145 0 0;`;
-alpha-bearing tokens keep it: `--border: 1 0 0 / 10%;`). `tailwind.config.ts`
-maps opaque tokens as `oklch(var(--x) / <alpha-value>)` and `border`, `input`,
-`sidebar-border` as plain `oklch(var(--x))` — so **never put an opacity
-modifier on them** (`border-border/50` is invalid). Inline styles use
-`oklch(var(--x))` / `oklch(var(--x) / 0.4)`. Chart tokens are greys, so series
-differ by lightness only. `--destructive-foreground` is not in the registry
-and is not defined.
+The palette is **the design mockups' palette** (`docs/design/*.dc.html`),
+expressed as tokens; components are shadcn's, the colours are ours.
+`app/globals.css` defines every colour as an oklch **channel triplet** with no
+alpha (`--card: 0.2011 0.0039 286.04; /* #161618 */`, converted from the exact
+mockup hex; the hex is kept in a trailing comment). `.dark` is the mockup
+palette (the app forces it); `:root` is a light mirror only so tokens resolve.
+`tailwind.config.ts` maps **every** token as `oklch(var(--x) / <alpha-value>)`.
+All tokens are opaque (border/input/sidebar-border are opaque triplets too), so
+any of them takes an opacity modifier (`bg-primary/80`, `border-border/50`).
+Inline styles use `oklch(var(--x))` / `oklch(var(--x) / 0.4)`.
+`--radius` is 12px (cards, inset panel); `md` = 8px (controls), `sm` = 6px (nav
+items). Body/outer frame and the sidebar are `--sidebar` (#0B0B0C); the
+`SidebarInset` is `--background` (#121213) with a 1px `--sidebar-border`
+(#232326) and 12px radius, 8px margin.
+
+shadcn tokens: `background` #121213 (inset panel), `foreground` #FAFAFA,
+`card`/`popover` #161618, `primary` #E07B53 (accent; `primary-foreground`
+#1C1917), `secondary`/`accent`/`sidebar-accent`/`sidebar-border` #232326,
+`muted` #1C1C1F (hover bg), `muted-foreground` #A1A1AA, `border` #26262A,
+`input` #2C2C30 (control borders), `ring`/`sidebar-ring` #52525B,
+`destructive` #F87171, `sidebar` #0B0B0C, `chart-1..5` = opus #E07B53, sonnet
+#6C9CF0, fable #B69CF7, haiku #3E9E8A, other #E8B24A.
+
+Extra tokens for roles the mockups use (Tailwind names in parentheses):
+`--subtle-foreground` #8B8B93 (captions, axis ticks, table heads;
+`text-subtle-foreground`), `--soft-foreground` #D4D4D8 (secondary text, neutral
+delta), `--nav-foreground` #B4B4BB (inactive nav), `--delta-bad` #F0A36B (cost
+up), `--delta-good` #8AB4F8, `--slot-b` #8AB4F8 (Compare slot B), `--panel`
+#0B0B0C (segmented-control track / input background), `--row-hover` #18181B,
+`--row-detail` #131315 (expanded row), `--divider` #1F1F22 (row dividers,
+delta-badge bg, empty heatmap cell), `--grid` #232326 (dashed chart grid),
+`--axis` #2C2C30, `--effort-1..5` #52525B/#71717A/#A1A1AA/#D4D4D8/accent,
+`--effort-unknown` #3F3F46, `--effort-all` #FAFAFA (all via `effortColor()` in
+`lib/format.ts`), `--token-input` #71717A, `--token-output` #D4D4D8,
+`--token-cache-write` #B69CF7, `--token-cache-read` #3E9E8A.
+
 **No hard-coded colours** in `components/**`, `hooks/**`, `lib/**`: no hex, no
-literal `oklch(<numbers>)`/`hsl(<numbers>)`, no Tailwind palette classes (`amber-400`, `zinc-*`, ...).
-Use tokens (`text-muted-foreground`, `bg-muted`, `bg-primary`,
-`text-destructive`) or `oklch(var(--chart-N) / alpha)` in
-inline styles. Semantics: cost-up/"warn" = `destructive`, "good" = `foreground`
-(arrows stay in the text), Compare A/B = `chart-1`/`chart-3`
-(`SLOT_COLOR`, badge text dark on A / light on B, both >= 7:1), heatmaps = `primary` with alpha. Only `globals.css`,
-`tailwind.config.ts` and the token strings in `lib/format.ts` name colours.
+literal `oklch(<numbers>)`/`hsl(<numbers>)`, no Tailwind palette classes
+(`amber-400`, `zinc-*`, ...). Use tokens. Semantics: cost-up = `delta-bad`,
+good = `delta-good`, neutral = `soft-foreground` (arrows stay in the text);
+Compare A/B = `primary`/`slot-b` (`SLOT_COLOR`; badge text `primary-foreground`,
+8.3:1 on slot-b, 5.9:1 on primary); heatmaps and the Efficiency grid =
+`primary` with alpha. **Numbers** (KPI values, table numbers, axis ticks,
+costs, dates, counts, model ids) use `font-mono tabular-nums` (Geist Mono is
+loaded in `app/layout.tsx`). Only `globals.css`, `tailwind.config.ts` and the
+token strings in `lib/format.ts` / `hooks/use-compare-view.ts` name colours; the
+only literal `#ccc`/`#fff` are recharts attribute selectors in
+`components/ui/chart.tsx` (they match recharts' defaults, they don't paint).
 
 ## Rules
 

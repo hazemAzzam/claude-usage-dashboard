@@ -34,7 +34,7 @@ export function TopBar({
   onAsk: () => void;
 }) {
   return (
-    <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4 transition-[width,height] ease-linear lg:px-6">
+    <header className="flex h-12 shrink-0 items-center gap-2 border-b border-sidebar-border px-4 transition-[width,height] ease-linear lg:px-6">
       <SidebarTrigger />
       <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4 data-[orientation=vertical]:self-center" />
       <Breadcrumb>
@@ -53,7 +53,7 @@ export function TopBar({
         aria-label="Date presets"
         spacing={0}
         value={selectedPreset ? [selectedPreset] : []}
-        className="rounded-lg border bg-background p-[3px]"
+        className="rounded-md border border-sidebar-border bg-panel p-[3px]"
       >
         {segments.map((p) => (
           <ToggleGroupItem
@@ -63,7 +63,7 @@ export function TopBar({
             // active preset still re-runs it and recomputes the range.
             onClick={() => onSelectPreset(p.key)}
             size="sm"
-            className="h-[26px] rounded-md px-2.5 text-[12.5px] aria-pressed:bg-sidebar-accent aria-pressed:text-foreground"
+            className="h-[26px] rounded-[5px] px-2.5 text-[12.5px] aria-pressed:bg-sidebar-accent aria-pressed:text-foreground"
           >
             {p.label}
           </ToggleGroupItem>

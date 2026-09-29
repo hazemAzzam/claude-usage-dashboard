@@ -16,7 +16,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { fmtUSDShort, num, shortDay, usdExact } from "@/lib/format";
+import { effortColor, fmtUSDShort, num, shortDay, usdExact } from "@/lib/format";
 import type { DailyByModelRow, DailyModelLegend, EffortCostRow } from "@/lib/derive";
 import type { PlanValue, TurnRow } from "@/hooks/use-overview-view";
 import type { HourPair, ModelDiffRow, TokenTypeRow } from "@/hooks/use-compare-view";
@@ -77,6 +77,8 @@ function TurnTick({ x, y, payload, rows }: { x?: number; y?: number; payload?: {
   );
 }
 
+const TURN_TONE = { early: "oklch(var(--effort-1))", mid: "oklch(var(--effort-2))", late: ACCENT } as const;
+
 export function TurnCostBars({ rows }: { rows: TurnRow[] }) {
   const config = { costPerMsg: { label: "Cost per message", color: ACCENT } } satisfies ChartConfig;
   return (
@@ -89,7 +91,7 @@ export function TurnCostBars({ rows }: { rows: TurnRow[] }) {
         />
         <Bar dataKey="costPerMsg" radius={[4, 4, 0, 0]} isAnimationActive={false}>
           {rows.map((r) => (
-            <Cell key={r.label} fill={r.late ? ACCENT : "oklch(var(--muted-foreground) / 0.45)"} />
+            <Cell key={r.label} fill={TURN_TONE[r.tone]} />
           ))}
           <LabelList dataKey="costLabel" position="top" className="fill-foreground text-[11px]" />
         </Bar>
@@ -151,6 +153,9 @@ export function EffortCostBars({ rows }: { rows: EffortCostRow[] }) {
         <YAxis type="category" dataKey="label" tickLine={false} axisLine={false} width={64} className="text-[12px]" />
         <ChartTooltip content={<ChartTooltipContent hideLabel formatter={(v) => `${usdExact(Number(v))} per message`} />} />
         <Bar dataKey="costPerMsg" fill={ACCENT} radius={[0, 4, 4, 0]} isAnimationActive={false}>
+          {rows.map((r) => (
+            <Cell key={r.effort} fill={effortColor(r.effort)} />
+          ))}
           <LabelList dataKey="costLabel" position="right" className="fill-foreground text-[11px]" />
         </Bar>
       </BarChart>
@@ -211,16 +216,16 @@ export function SessionScatter({ scatter }: { scatter: ScatterModel }) {
 }
 
 // ---- Compare days ----
-// Slot colours: A = chart-1 (lightest grey), B = chart-3 (mid grey). They differ
-// by lightness only (the neutral theme is monochrome), so every use is also
-// labelled with the text "A"/"B". Badge text: dark on A, light on B.
-export const SLOT_COLOR = { A: "oklch(var(--chart-1))", B: "oklch(var(--chart-3))" } as const;
-const SLOT_TEXT = { A: "text-background", B: "text-foreground" } as const;
+// Slot colours (mockups): A = the accent (--primary), B = --slot-b (blue).
+// Every use is also labelled with the text "A"/"B". Badge text is the dark
+// --primary-foreground on both (8.3:1 on slot-b, 5.9:1 on the accent).
+export const SLOT_COLOR = { A: "oklch(var(--primary))", B: "oklch(var(--slot-b))" } as const;
+const SLOT_TEXT = "text-primary-foreground";
 
 export function SlotBadge({ slot }: { slot: "A" | "B" }) {
   return (
     <span
-      className={`inline-flex h-4 w-4 items-center justify-center rounded-[4px] font-mono text-[10px] font-semibold ${SLOT_TEXT[slot]}`}
+      className={`inline-flex h-4 w-4 items-center justify-center rounded-[4px] font-mono text-[10px] font-semibold ${SLOT_TEXT}`}
       style={{ background: SLOT_COLOR[slot] }}
       aria-hidden
     >
@@ -284,7 +289,7 @@ export function TokenMixBars({ rows, types }: { rows: TokenTypeRow[]; types: Rea
               <SlotBadge slot={r.slot} />
               {r.slot} · {r.dayLabel}
             </span>
-            <span className="tabular-nums">{r.totalLabel}</span>
+            <span className="font-mono tabular-nums">{r.totalLabel}</span>
           </div>
           <div className="flex h-3 overflow-hidden rounded-[3px] bg-muted" aria-hidden>
             {r.parts.map((p) => (

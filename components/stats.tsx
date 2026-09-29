@@ -5,9 +5,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 export { shortModel } from "@/lib/format";
 
 const DELTA_TONE = {
-  good: "bg-muted text-foreground",
-  warn: "bg-destructive/15 text-destructive",
-  neutral: "bg-muted text-muted-foreground",
+  good: "bg-divider text-delta-good",
+  warn: "bg-divider text-delta-bad",
+  neutral: "bg-divider text-soft-foreground",
 } as const;
 
 // KPI card. `delta` is the change vs the previous period, already formatted
@@ -32,14 +32,14 @@ export function Kpi({
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
           {delta && (
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums ${DELTA_TONE[delta.tone]}`}>
+            <span className={`rounded px-1.5 py-0.5 font-mono text-[11.5px] font-medium tabular-nums ${DELTA_TONE[delta.tone]}`}>
               <span className="sr-only">Change vs previous period: </span>
               {delta.label}
             </span>
           )}
         </div>
         <div className="mt-1.5 flex items-end justify-between gap-2">
-          <span className="text-2xl font-semibold tabular-nums">{value}</span>
+          <span className="font-mono text-2xl font-semibold tabular-nums">{value}</span>
           {spark}
         </div>
         {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
@@ -53,7 +53,7 @@ export function MiniStat({ label, value, hint }: { label: string; value: string;
     <Card>
       <CardContent className="pt-5">
         <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-        <div className="mt-1 text-xl font-semibold">{value}</div>
+        <div className="mt-1 font-mono text-xl font-semibold tabular-nums">{value}</div>
         {hint && <div className="mt-0.5 text-[11px] text-muted-foreground">{hint}</div>}
       </CardContent>
     </Card>
@@ -91,7 +91,7 @@ export function DataTable({
             {r.map((c, ci) => (
               <TableCell
                 key={ci}
-                className={`${alignRight.includes(ci) ? "text-right tabular-nums text-muted-foreground" : ""} ${
+                className={`${alignRight.includes(ci) ? "text-right font-mono tabular-nums text-muted-foreground" : ""} ${
                   ci === 0 ? "max-w-[160px] truncate" : ""
                 }`}
               >

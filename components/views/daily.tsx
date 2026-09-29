@@ -63,7 +63,7 @@ function DayRow({ r, open, onToggle }: { r: DailyRow; open: boolean; onToggle: (
   return (
     <>
       <TableRow className={expandable ? "cursor-pointer" : undefined} onClick={expandable ? onToggle : undefined}>
-        <TableCell className="whitespace-nowrap font-medium">
+        <TableCell className="whitespace-nowrap font-mono font-medium">
           <span className="inline-flex items-center gap-1.5">
             {expandable ? (
               <button
@@ -92,20 +92,20 @@ function DayRow({ r, open, onToggle }: { r: DailyRow; open: boolean; onToggle: (
             ))}
           </div>
         </TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">{num(d.messages)}</TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(d.input)}</TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(d.output)}</TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(d.cacheCreate)}</TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">
+        <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{num(d.messages)}</TableCell>
+        <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{tokens(d.input)}</TableCell>
+        <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{tokens(d.output)}</TableCell>
+        <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{tokens(d.cacheCreate)}</TableCell>
+        <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
           {tokens(d.cacheRead)} <span className="text-[11px] opacity-60">{r.cacheShareLabel}</span>
         </TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">{r.tokensPerDollarLabel}</TableCell>
-        <TableCell className="text-right font-medium tabular-nums">{usdExact(d.cost)}</TableCell>
+        <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{r.tokensPerDollarLabel}</TableCell>
+        <TableCell className="text-right font-medium font-mono tabular-nums">{usdExact(d.cost)}</TableCell>
       </TableRow>
       {open &&
         expandable &&
         r.parts.map((p) => (
-          <TableRow key={p.model} className="bg-muted/30 text-xs hover:bg-muted/30">
+          <TableRow key={p.model} className="bg-row-detail text-xs hover:bg-row-detail">
             <TableCell className="pl-8">
               <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                 <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: p.color }} aria-hidden />
@@ -117,9 +117,9 @@ function DayRow({ r, open, onToggle }: { r: DailyRow; open: boolean; onToggle: (
                 <div className="h-full rounded-full" style={{ width: `${p.pctOfDay}%`, background: p.color }} />
               </div>
             </TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">{num(p.messages)} msgs</TableCell>
+            <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{num(p.messages)} msgs</TableCell>
             <TableCell colSpan={4} />
-            <TableCell className="text-right tabular-nums text-muted-foreground">{p.costLabel}</TableCell>
+            <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{p.costLabel}</TableCell>
           </TableRow>
         ))}
     </>
