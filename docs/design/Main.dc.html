@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Claude Usage — Overview</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0b0b0c;font-family:'Geist',system-ui,sans-serif;color:#fafafa}
+a{color:#fafafa;text-decoration:none}a:hover{color:#ffffff}
+button{font-family:inherit}
+.sbi:hover{background:#1c1c1f !important;color:#fafafa !important}
+.btn:hover{background:#1c1c1f !important}
+.mono{font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1000px; display: flex; background: #0b0b0c; color: #fafafa; font-family: 'Geist', system-ui, sans-serif; overflow: hidden">
+
+<aside style="width: {{sbw}}; flex-shrink: 0; box-sizing: border-box; padding: 8px; display: flex; flex-direction: column; gap: 2px; transition: width 0.2s ease; overflow: hidden">
+  <div style="display: flex; align-items: center; gap: 10px; height: 48px; box-sizing: border-box">
+    <div style="width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; background: {{accent}}; color: #1c1917; display: flex; align-items: center; justify-content: center">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"></path><path d="M7 16v-5"></path><path d="M12 16V7"></path><path d="M17 16v-8"></path></svg>
+    </div>
+    <sc-if value="{{open}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; min-width: 0; line-height: 1.3">
+        <span style="font-size: 14px; font-weight: 600; white-space: nowrap">Claude Usage</span>
+        <span class="mono" style="font-size: 11.5px; color: #8b8b93; white-space: nowrap">~/.claude/projects</span>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{open}}" hint-placeholder-val="{{ true }}">
+    <div style="height: 32px; display: flex; align-items: center; padding: 0 8px; margin-top: 8px; font-size: 12px; font-weight: 500; color: #8b8b93">Views</div>
+  </sc-if>
+  <sc-if value="{{closed}}" hint-placeholder-val="{{ false }}"><div style="height: 16px"></div></sc-if>
+  <nav aria-label="Views" style="display: flex; flex-direction: column; gap: 2px">
+    <a class="sbi" href="Main.dc.html" aria-label="Overview" aria-current="page" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; font-size: 13.5px; font-weight: 500; color: #fafafa; background: #232326; white-space: nowrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg>
+      <sc-if value="{{open}}" hint-placeholder-val="{{ true }}"><span>Overview</span></sc-if>
+    </a>
+    <a class="sbi" href="Sessions.dc.html" aria-label="Sessions" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; font-size: 13.5px; color: #b4b4bb; white-space: nowrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0" aria-hidden="true"><path d="M3 6h.01M3 12h.01M3 18h.01M8 6h13M8 12h13M8 18h13"></path></svg>
+      <sc-if value="{{open}}" hint-placeholder-val="{{ true }}"><span style="flex-grow: 1">Sessions</span><span class="mono" style="font-size: 11.5px; color: #8b8b93">412</span></sc-if>
+    </a>
+    <a class="sbi" href="Projects.dc.html" aria-label="Projects" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; font-size: 13.5px; color: #b4b4bb; white-space: nowrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+      <sc-if value="{{open}}" hint-placeholder-val="{{ true }}"><span style="flex-grow: 1">Projects</span><span class="mono" style="font-size: 11.5px; color: #8b8b93">14</span></sc-if>
+    </a>
+    <a class="sbi" href="Daily.dc.html" aria-label="Daily" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; font-size: 13.5px; color: #b4b4bb; white-space: nowrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>
+      <sc-if value="{{open}}" hint-placeholder-val="{{ true }}"><span>Daily</span></sc-if>
+    </a>
+    <a class="sbi" href="Compare.dc.html" aria-label="Compare days" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; font-size: 13.5px; color: #b4b4bb; white-space: nowrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0" aria-hidden="true"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M13 6h3a2 2 0 0 1 2 2v7"></path><path d="M11 18H8a2 2 0 0 1-2-2V9"></path></svg>
+      <sc-if value="{{open}}" hint-placeholder-val="{{ true }}"><span>Compare days</span></sc-if>
+    </a>
+    <a class="sbi" href="Efficiency.dc.html" aria-label="Efficiency" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; font-size: 13.5px; color: #b4b4bb; white-space: nowrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0" aria-hidden="true"><path d="m12 14 4-4"></path><path d="M3.34 19a10 10 0 1 1 17.32 0"></path></svg>
+      <sc-if value="{{open}}" hint-placeholder-val="{{ true }}"><span>Efficiency</span></sc-if>
+    </a>
+    <a class="sbi" href="Patterns.dc.html" aria-label="Patterns" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; font-size: 13.5px; color: #b4b4bb; white-space: nowrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path></svg>
+      <sc-if value="{{open}}" hint-placeholder-val="{{ true }}"><span>Patterns</span></sc-if>
+    </a>
+  </nav>
+
+  <sc-if value="{{open}}" hint-placeholder-val="{{ true }}">
+    <div style="height: 32px; display: flex; align-items: center; padding: 0 8px; margin-top: 16px; font-size: 12px; font-weight: 500; color: #8b8b93">Effort</div>
+    <div role="group" aria-label="Effort filter" style="display: flex; flex-direction: column; gap: 2px">
+      <sc-for list="{{efforts}}" as="e" hint-placeholder-count="7">
+        <button type="button" class="sbi" onClick="{{ e.pick }}" aria-pressed="{{ e.sel }}" style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 8px; border: 0; border-radius: 6px; font-size: 13px; cursor: pointer; text-align: left; white-space: nowrap; background: {{ e.bg }}; color: {{ e.fg }}">
+          <span style="width: 6px; height: 6px; border-radius: 3px; flex-shrink: 0; background: {{ e.dot }}"></span>
+          <span style="flex-grow: 1">{{ e.label }}</span>
+          <span class="mono" style="font-size: 11.5px; color: #8b8b93">{{ e.costLabel }}</span>
+        </button>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <div style="flex-grow: 1"></div>
+
+  <button type="button" class="sbi" aria-label="Ask about your usage" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; font-size: 13.5px; color: #b4b4bb; white-space: nowrap; cursor: pointer; text-align: left">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>
+    <sc-if value="{{open}}" hint-placeholder-val="{{ true }}"><span>Ask about your usage</span></sc-if>
+  </button>
+
+  <sc-if value="{{open}}" hint-placeholder-val="{{ true }}">
+    <div style="margin-top: 8px; padding: 12px; border: 1px solid #232326; border-radius: 8px; background: #121213; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <span class="mono" style="font-size: 13px; font-weight: 500">38,214 messages</span>
+        <span style="font-size: 12px; color: #8b8b93">Parsed in 412 ms · cache warm</span>
+      </div>
+      <button type="button" class="btn" style="height: 32px; border: 1px solid #2c2c30; border-radius: 6px; background: #161618; color: #fafafa; font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
+        Refresh
+      </button>
+    </div>
+  </sc-if>
+  <sc-if value="{{closed}}" hint-placeholder-val="{{ false }}">
+    <button type="button" class="sbi" aria-label="Refresh" style="display: flex; align-items: center; height: 32px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: #b4b4bb; cursor: pointer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
+    </button>
+  </sc-if>
+</aside>
+
+<main style="flex-grow: 1; min-width: 0; margin: 8px 8px 8px 0; background: #121213; border: 1px solid #232326; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden">
+  <header style="height: 56px; flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid #232326">
+    <button type="button" class="btn" onClick="{{toggle}}" aria-label="Toggle sidebar" style="width: 32px; height: 32px; border: 0; border-radius: 6px; background: transparent; color: #fafafa; display: flex; align-items: center; justify-content: center; cursor: pointer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M9 3v18"></path></svg>
+    </button>
+    <div style="width: 1px; height: 16px; background: #2c2c30"></div>
+    <nav aria-label="Breadcrumb" style="display: flex; align-items: center; gap: 8px; font-size: 13.5px">
+      <span style="color: #a1a1aa">Dashboard</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+      <span style="color: #fafafa; font-weight: 500">Overview</span>
+    </nav>
+    <div style="flex-grow: 1"></div>
+    <div role="group" aria-label="Date presets" style="display: flex; gap: 2px; padding: 3px; background: #0b0b0c; border: 1px solid #232326; border-radius: 8px">
+      <sc-for list="{{presets}}" as="p" hint-placeholder-count="5">
+        <button type="button" onClick="{{ p.pick }}" aria-pressed="{{ p.sel }}" style="height: 26px; padding: 0 10px; border: 0; border-radius: 5px; font-size: 12.5px; font-weight: 500; cursor: pointer; background: {{ p.bg }}; color: {{ p.fg }}">{{ p.label }}</button>
+      </sc-for>
+    </div>
+    <button type="button" class="btn" style="height: 34px; padding: 0 12px; border: 1px solid #2c2c30; border-radius: 8px; background: #161618; color: #fafafa; font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>
+      <span class="mono">Sep 1 – Sep 29, 2026</span>
+    </button>
+    <button type="button" style="height: 34px; padding: 0 14px; border: 0; border-radius: 8px; background: {{accent}}; color: #1c1917; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>
+      Ask Claude
+    </button>
+  </header>
+
+  <div style="flex-grow: 1; padding: 24px; display: flex; flex-direction: column; gap: 16px; overflow: hidden">
+    <div style="display: flex; align-items: flex-end; justify-content: space-between">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h1 style="margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em">Overview</h1>
+        <p style="margin: 0; font-size: 13.5px; color: #a1a1aa">API-equivalent cost · {{effortLabel}} · compared with Aug 3 – Aug 31</p>
+      </div>
+      <span style="font-size: 12px; color: #8b8b93">Updated 12 s ago</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+      <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+        <div style="background: #161618; border: 1px solid #26262a; border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px">
+          <div style="display: flex; align-items: center; justify-content: space-between">
+            <span style="font-size: 13px; color: #a1a1aa">{{ k.label }}</span>
+            <span class="mono" style="font-size: 11.5px; font-weight: 500; padding: 2px 6px; border-radius: 4px; background: #1f1f22; color: {{ k.deltaColor }}">{{ k.delta }}</span>
+          </div>
+          <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 12px">
+            <span class="mono" style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em; white-space: nowrap">{{ k.value }}</span>
+            <div aria-hidden="true" style="display: flex; align-items: flex-end; gap: 2px; height: 28px; width: 104px">
+              <sc-for list="{{ k.spark }}" as="s" hint-placeholder-count="29">
+                <span style="flex: 1; border-radius: 1px; height: {{ s.h }}%; background: {{ s.c }}"></span>
+              </sc-for>
+            </div>
+          </div>
+          <span style="font-size: 12px; color: #8b8b93">{{ k.sub }}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+      <section style="background: #161618; border: 1px solid #26262a; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <h2 style="margin: 0; font-size: 15px; font-weight: 600">Long sessions cost more per turn</h2>
+          <span style="font-size: 12.5px; color: #8b8b93">Average cost per message by its position in the session</span>
+        </div>
+        <div style="display: flex; gap: 10px; height: 170px">
+          <sc-for list="{{lengthBuckets}}" as="b" hint-placeholder-count="6">
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px">
+              <span class="mono" style="font-size: 11.5px; color: #d4d4d8">{{ b.perMsg }}</span>
+              <div style="width: 100%; border-radius: 4px 4px 0 0; height: {{ b.h }}%; background: {{ b.bg }}"></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: -6px; border-top: 1px solid #2c2c30; padding-top: 6px">
+          <sc-for list="{{lengthBuckets}}" as="b" hint-placeholder-count="6">
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px">
+              <span class="mono" style="font-size: 11.5px; color: #a1a1aa">{{ b.label }}</span>
+              <span class="mono" style="font-size: 11px; color: #8b8b93">{{ b.share }} of $</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 8px; background: #1c1c1f; font-size: 12.5px; line-height: 1.5; color: #d4d4d8">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2Z"></path></svg>
+          <span>Turns after #150 cost <span class="mono" style="color: #fafafa; font-weight: 500">{{lateMultiple}}</span> the first 25 and make up <span class="mono" style="color: #fafafa; font-weight: 500">{{lateShare}}</span> of spend. Running /compact around turn 120 would cap this.</span>
+        </div>
+      </section>
+
+      <section style="background: #161618; border: 1px solid #26262a; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between">
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 600">Value vs. your plan</h2>
+            <span style="font-size: 12.5px; color: #8b8b93">Cumulative API-equivalent spend this month</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px">
+            <span class="mono" style="font-size: 22px; font-weight: 600; color: {{accent}}">{{multiple}}</span>
+            <span style="font-size: 12px; color: #8b8b93">of a {{planLabel}} plan</span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px">
+          <div class="mono" style="display: flex; flex-direction: column; justify-content: space-between; height: 178px; margin-top: -6px; font-size: 11px; color: #8b8b93; text-align: right; width: 44px">
+            <span>$1,400</span><span>$1,050</span><span>$700</span><span>$350</span><span>$0</span>
+          </div>
+          <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 6px">
+            <div style="position: relative; height: 166px; border-bottom: 1px solid #2c2c30">
+              <div style="position: absolute; left: 0; right: 0; top: 0; border-top: 1px dashed #232326"></div>
+              <div style="position: absolute; left: 0; right: 0; top: 41.5px; border-top: 1px dashed #232326"></div>
+              <div style="position: absolute; left: 0; right: 0; top: 83px; border-top: 1px dashed #232326"></div>
+              <div style="position: absolute; left: 0; right: 0; top: 124.5px; border-top: 1px dashed #232326"></div>
+              <svg viewBox="0 0 600 166" preserveAspectRatio="none" style="position: absolute; inset: 0; width: 100%; height: 166px; overflow: visible" aria-label="Cumulative spend line">
+                <path d="{{cumArea}}" fill="{{accent}}" fill-opacity="0.14" stroke="none"></path>
+                <path d="{{cumLine}}" fill="none" stroke="{{accent}}" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+                <path d="{{projLine}}" fill="none" stroke="{{accent}}" stroke-width="2" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></path>
+                <path d="{{planLine}}" fill="none" stroke="#a1a1aa" stroke-width="1.5" stroke-dasharray="2 3" vector-effect="non-scaling-stroke"></path>
+                <path d="{{crossLine}}" fill="none" stroke="#52525b" stroke-width="1" vector-effect="non-scaling-stroke"></path>
+              </svg>
+              <span class="mono" style="position: absolute; right: 0; top: {{planTop}}px; transform: translateY(-120%); font-size: 11px; color: #a1a1aa; background: #161618; padding: 0 4px">{{planLabel}} plan</span>
+              <span style="position: absolute; left: {{crossLeft}}%; top: 8px; transform: translateX(6px); font-size: 11px; color: #a1a1aa; white-space: nowrap">Plan paid off {{crossDay}}</span>
+              <span class="mono" style="position: absolute; right: 0; top: {{projTop}}px; transform: translate(-6px, -130%); font-size: 11px; color: #d4d4d8; white-space: nowrap">→ {{projLabel}} by Sep 30</span>
+            </div>
+            <div class="mono" style="display: flex; justify-content: space-between; font-size: 11px; color: #8b8b93">
+              <span>Sep 1</span><span>Sep 8</span><span>Sep 15</span><span>Sep 22</span><span>Sep 30</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+      <section style="grid-column: span 2; background: #161618; border: 1px solid #26262a; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between">
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 600">Daily cost by model</h2>
+            <span style="font-size: 12.5px; color: #8b8b93">Stacked bars, with a 7-day average to show the trend</span>
+          </div>
+          <div style="display: flex; gap: 14px; font-size: 12px; color: #a1a1aa">
+            <sc-for list="{{models}}" as="m" hint-placeholder-count="4">
+              <span style="display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 2px; background: {{ m.color }}"></span><span class="mono">{{ m.label }}</span></span>
+            </sc-for>
+            <span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 2px; background: #fafafa"></span>7-day avg</span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px">
+          <div class="mono" style="display: flex; flex-direction: column; justify-content: space-between; height: 152px; margin-top: -6px; font-size: 11px; color: #8b8b93; text-align: right; width: 28px">
+            <span>$80</span><span>$40</span><span>$0</span>
+          </div>
+          <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 6px">
+            <div style="position: relative; height: 140px; border-bottom: 1px solid #2c2c30">
+              <div style="position: absolute; left: 0; right: 0; top: 0; border-top: 1px dashed #232326"></div>
+              <div style="position: absolute; left: 0; right: 0; top: 70px; border-top: 1px dashed #232326"></div>
+              <div style="position: absolute; inset: 0; display: flex; align-items: flex-end; gap: 5px">
+                <sc-for list="{{days}}" as="d" hint-placeholder-count="29">
+                  <div title="{{ d.tip }}" style="flex: 1; height: {{ d.h }}%; display: flex; flex-direction: column-reverse; border-radius: 3px 3px 0 0; overflow: hidden; opacity: 0.85">
+                    <sc-for list="{{ d.segs }}" as="s" hint-placeholder-count="4">
+                      <div style="height: {{ s.pct }}%; background: {{ s.c }}"></div>
+                    </sc-for>
+                  </div>
+                </sc-for>
+              </div>
+              <svg viewBox="0 0 290 140" preserveAspectRatio="none" style="position: absolute; inset: 0; width: 100%; height: 140px; overflow: visible" aria-hidden="true">
+                <path d="{{avgLine}}" fill="none" stroke="#fafafa" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+              </svg>
+            </div>
+            <div class="mono" style="display: flex; gap: 5px; font-size: 11px; color: #8b8b93">
+              <sc-for list="{{days}}" as="d" hint-placeholder-count="29">
+                <span style="flex: 1; white-space: nowrap">{{ d.axis }}</span>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section style="background: #161618; border: 1px solid #26262a; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <h2 style="margin: 0; font-size: 15px; font-weight: 600">Cost per message by effort</h2>
+          <span style="font-size: 12.5px; color: #8b8b93">Per message, so volume doesn't skew it</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 11px">
+          <sc-for list="{{effortBars}}" as="e" hint-placeholder-count="6">
+            <div style="display: grid; grid-template-columns: 64px minmax(0, 1fr) 60px; gap: 10px; align-items: center; font-size: 12.5px">
+              <span style="color: #d4d4d8">{{ e.label }}</span>
+              <div style="height: 8px; border-radius: 4px; background: #232326; overflow: hidden">
+                <div style="height: 8px; border-radius: 4px; width: {{ e.w }}%; background: {{ e.dot }}"></div>
+              </div>
+              <span class="mono" style="text-align: right">{{ e.perMsg }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <a href="Efficiency.dc.html" style="margin-top: auto; font-size: 12.5px; color: #a1a1aa">Max costs <span class="mono" style="color: #fafafa">{{effortRatio}}</span> Low per message · details</a>
+      </section>
+    </div>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#E07B53","options":["#E07B53","#6C9CF0","#3E9E8A","#E8B24A"]},"planPrice":{"editor":"enum","default":"200","options":["20","100","200"]},"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const accent = this.props.accent ?? '#E07B53';
+    const plan = Number(this.props.planPrice ?? '200');
+    const collapsed = st.collapsed ?? false;
+    const preset = st.preset ?? '30d';
+    const effort = st.effort ?? 'all';
+    const money = (n) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const whole = (n) => '$' + Math.round(n).toLocaleString('en-US');
+    const total = 1284.37;
+    const UP_BAD = '#F0A36B';
+    const UP_GOOD = '#8AB4F8';
+
+    const models = [
+      { label: 'opus-4.x', color: '#E07B53' },
+      { label: 'sonnet-4.x', color: '#6C9CF0' },
+      { label: 'fable-5', color: '#B69CF7' },
+      { label: 'haiku-4.5', color: '#3E9E8A' }
+    ];
+
+    const effortData = [
+      { key: 'low', label: 'Low', cost: 41.10, msgs: 4210, dot: '#52525b' },
+      { key: 'medium', label: 'Medium', cost: 219.55, msgs: 10880, dot: '#71717a' },
+      { key: 'high', label: 'High', cost: 532.37, msgs: 13950, dot: '#a1a1aa' },
+      { key: 'xhigh', label: 'Extra', cost: 348.06, msgs: 6720, dot: '#d4d4d8' },
+      { key: 'max', label: 'Max', cost: 118.40, msgs: 1640, dot: accent },
+      { key: 'unknown', label: 'Unknown', cost: 24.89, msgs: 814, dot: '#3f3f46' }
+    ];
+    const per = effortData.map((e) => e.cost / e.msgs);
+    const maxPer = Math.max(...per);
+    const effortBars = effortData.map((e, i) => ({ label: e.label, dot: e.dot, perMsg: '$' + per[i].toFixed(3), w: (per[i] / maxPer * 100).toFixed(1) }));
+    const efforts = [{ key: 'all', label: 'All efforts', cost: total, dot: '#fafafa' }].concat(effortData).map((e) => {
+      const sel = e.key === effort;
+      return { label: e.label, dot: e.dot, sel, costLabel: whole(e.cost), bg: sel ? '#232326' : 'transparent', fg: sel ? '#fafafa' : '#b4b4bb', pick: () => this.setState({ effort: e.key }) };
+    });
+    const effortLabel = effort === 'all' ? 'all efforts' : effortData.find((e) => e.key === effort).label + ' effort only';
+    const presets = ['Today', '7d', '30d', '90d', 'All'].map((label) => {
+      const sel = label === preset;
+      return { label, sel, bg: sel ? '#232326' : 'transparent', fg: sel ? '#fafafa' : '#a1a1aa', pick: () => this.setState({ preset: label }) };
+    });
+
+    let seed = 11;
+    const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    const raw = [];
+    for (let i = 0; i < 29; i++) {
+      const dow = (2 + i) % 7;
+      raw.push((0.55 + rnd() * 0.9) * (dow === 0 || dow === 6 ? 0.4 : 1));
+    }
+    const rawSum = raw.reduce((a, b) => a + b, 0);
+    const vals = raw.map((r) => r / rawSum * total);
+    const days = vals.map((t, i) => {
+      const shares = [58 + (rnd() - 0.5) * 18, 27 + (rnd() - 0.5) * 12, 11 + (rnd() - 0.5) * 8, 4 + rnd() * 3];
+      const ss = shares.reduce((a, b) => a + b, 0);
+      return {
+        h: Math.min(100, t / 80 * 100).toFixed(1),
+        tip: 'Sep ' + (i + 1) + ' · ' + money(t),
+        axis: i % 7 === 0 ? 'Sep ' + (i + 1) : '',
+        segs: shares.map((s, k) => ({ pct: (s / ss * 100).toFixed(2), c: models[k].color }))
+      };
+    });
+    const avgPts = vals.map((_, i) => {
+      const w = vals.slice(Math.max(0, i - 6), i + 1);
+      const a = w.reduce((x, y) => x + y, 0) / w.length;
+      return (i * 10 + 5).toFixed(1) + ',' + (140 - a / 80 * 140).toFixed(1);
+    });
+    const avgLine = 'M' + avgPts.join(' L');
+
+    const cum = [];
+    vals.reduce((a, v) => { cum.push(a + v); return a + v; }, 0);
+    const Y = (v) => 166 - v / 1400 * 166;
+    const X = (i) => i / 29 * 600;
+    const pts = cum.map((v, i) => X(i).toFixed(1) + ',' + Y(v).toFixed(1));
+    const cumLine = 'M' + pts.join(' L');
+    const cumArea = 'M0,166 L' + pts.join(' L') + ' L' + X(28).toFixed(1) + ',166 Z';
+    const lastWeek = vals.slice(-7).reduce((a, b) => a + b, 0) / 7;
+    const proj = total + lastWeek;
+    const projLine = 'M' + X(28).toFixed(1) + ',' + Y(total).toFixed(1) + ' L600,' + Y(proj).toFixed(1);
+    const planY = Y(plan);
+    const planLine = 'M0,' + planY.toFixed(1) + ' L600,' + planY.toFixed(1);
+    const crossIdx = Math.max(0, cum.findIndex((v) => v >= plan));
+    const crossLine = 'M' + X(crossIdx).toFixed(1) + ',0 L' + X(crossIdx).toFixed(1) + ',166';
+
+    const sparkOf = (arr, color) => {
+      const m = Math.max(...arr);
+      return arr.map((v, i) => ({ h: Math.max(6, v / m * 100).toFixed(1), c: i >= arr.length - 7 ? color : '#3f3f46' }));
+    };
+    const sessionsPerDay = vals.map((v, i) => v * (0.28 + ((i * 7) % 5) * 0.02));
+    const perMsgDay = vals.map((v, i) => 0.03 + ((i * 13) % 7) * 0.001 + i * 0.0002);
+    const savingsDay = vals.map((v) => v * 4.94);
+    const kpis = [
+      { label: 'Total cost', value: '$1,284.37', delta: '▲ 18.0%', deltaColor: UP_BAD, sub: 'vs $1,088.40 · 38,214 messages', spark: sparkOf(vals, accent) },
+      { label: 'Sessions', value: '412', delta: '▲ 11.1%', deltaColor: '#d4d4d8', sub: 'vs 371 · across 14 projects', spark: sparkOf(sessionsPerDay, '#a1a1aa') },
+      { label: 'Cost per message', value: '$0.034', delta: '▲ 11.6%', deltaColor: UP_BAD, sub: 'vs $0.030 · sessions got longer', spark: sparkOf(perMsgDay, UP_BAD) },
+      { label: 'Saved by caching', value: '$6,340', delta: '▲ 22.4%', deltaColor: UP_GOOD, sub: 'would be $7,624 without cache reads', spark: sparkOf(savingsDay, UP_GOOD) }
+    ];
+
+    const buckets = [
+      { label: '1–25', perMsg: 0.011, cost: 96.3 },
+      { label: '26–50', perMsg: 0.018, cost: 142.6 },
+      { label: '51–100', perMsg: 0.027, cost: 263.1 },
+      { label: '101–150', perMsg: 0.039, cost: 381.2 },
+      { label: '151–250', perMsg: 0.052, cost: 247.5 },
+      { label: '251+', perMsg: 0.071, cost: 153.67 }
+    ];
+    const maxB = Math.max(...buckets.map((b) => b.perMsg));
+    const lengthBuckets = buckets.map((b, i) => ({
+      label: b.label,
+      perMsg: '$' + b.perMsg.toFixed(3),
+      share: Math.round(b.cost / total * 100) + '%',
+      h: (b.perMsg / maxB * 100).toFixed(1),
+      bg: i >= 4 ? accent : (i === 3 ? '#71717a' : '#52525b')
+    }));
+    const late = buckets[4].cost + buckets[5].cost;
+    const lateAvg = (buckets[4].perMsg + buckets[5].perMsg) / 2;
+
+    return {
+      accent,
+      open: !collapsed,
+      closed: collapsed,
+      sbw: collapsed ? '48px' : '256px',
+      toggle: () => this.setState({ collapsed: !collapsed }),
+      models, efforts, effortBars, effortLabel, presets, days, kpis, lengthBuckets, avgLine,
+      effortRatio: (per[4] / per[0]).toFixed(1) + '×',
+      lateMultiple: (lateAvg / buckets[0].perMsg).toFixed(1) + '×',
+      lateShare: Math.round(late / total * 100) + '%',
+      cumLine, cumArea, projLine, planLine, crossLine,
+      planLabel: '$' + plan,
+      planTop: planY.toFixed(1),
+      projTop: Y(proj).toFixed(1),
+      projLabel: whole(proj),
+      multiple: (total / plan).toFixed(1) + '×',
+      crossLeft: (crossIdx / 29 * 100).toFixed(1),
+      crossDay: 'Sep ' + (crossIdx + 1)
+    };
+  }
+}
+</script>
+</body>
+</html>

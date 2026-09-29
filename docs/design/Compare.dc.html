@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Claude Usage — Compare days</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0b0b0c;font-family:'Geist',system-ui,sans-serif;color:#fafafa}
+a{color:#fafafa;text-decoration:none}a:hover{color:#ffffff}
+button{font-family:inherit}
+.sbi:hover{background:#1c1c1f !important;color:#fafafa !important}
+.btn:hover{background:#1c1c1f !important}
+.dayb:hover{background:#1c1c1f !important}
+.mono{font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1000px; display: flex; background: #0b0b0c; color: #fafafa; font-family: 'Geist', system-ui, sans-serif; overflow: hidden">
+
+<aside style="width: {{sbw}}; flex-shrink: 0; box-sizing: border-box; padding: 8px; display: flex; flex-direction: column; gap: 2px; transition: width 0.2s ease; overflow: hidden">
+  <div style="display: flex; align-items: center; gap: 10px; height: 48px; box-sizing: border-box">
+    <div style="width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; background: {{accent}}; color: #1c1917; display: flex; align-items: center; justify-content: center">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"></path><path d="M7 16v-5"></path><path d="M12 16V7"></path><path d="M17 16v-8"></path></svg>
+    </div>
+    <sc-if value="{{open}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; min-width: 0; line-height: 1.3">
+        <span style="font-size: 14px; font-weight: 600; white-space: nowrap">Claude Usage</span>
+        <span class="mono" style="font-size: 11.5px; color: #8b8b93; white-space: nowrap">~/.claude/projects</span>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{open}}" hint-placeholder-val="{{ true }}">
+    <div style="height: 32px; display: flex; align-items: center; padding: 0 8px; margin-top: 8px; font-size: 12px; font-weight: 500; color: #8b8b93">Views</div>
+  </sc-if>
+  <sc-if value="{{closed}}" hint-placeholder-val="{{ false }}"><div style="height: 16px"></div></sc-if>
+  <nav aria-label="Views" style="display: flex; flex-direction: column; gap: 2px">
+    <a class="sbi" href="Main.dc.html" aria-label="Overview" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; font-size: 13.5px; color: #b4b4bb; white-space: nowrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg>
+      <sc-if value="{{open}}" hint-placeholder-val="{{ true }}"><span>Overview</span></sc-if>
+    </a>
+    <a class="sbi" href="Sessions.dc.html" aria-label="Sessions" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; font-size: 13.5px; color: #b4b4bb; white-space: nowrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0" aria-hidden="true"><path d="M3 6h.01M3 12h.01M3 18h.01M8 6h13M8 12h13M8 18h13"></path></svg>
+      <sc-if value="{{open}}" hint-placeholder-val="{{ true }}"><span style="flex-grow: 1">Sessions</span><span class="mono" style="font-size: 11.5px; color: #8b8b93">412</span></sc-if>
+    </a>
+    <a class="sbi" href="Projects.dc.html" aria-label="Projects" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; font-size: 13.5px; color: #b4b4bb; white-space: nowrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+      <sc-if value="{{open}}" hint-placeholder-val="{{ true }}"><span style="flex-grow: 1">Projects</span><span class="mono" style="font-size: 11.5px; color: #8b8b93">14</span></sc-if>
+    </a>
+    <a class="sbi" href="Daily.dc.html" aria-label="Daily" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; font-size: 13.5px; color: #b4b4bb; white-space: nowrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>
+      <sc-if value="{{open}}" hint-placeholder-val="{{ true }}"><span>Daily</span></sc-if>
+    </a>
+    <a class="sbi" href="Compare.dc.html" aria-label="Compare days" aria-current="page" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; font-size: 13.5px; font-weight: 500; color: #fafafa; background: #232326; white-space: nowrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0" aria-hidden="true"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M13 6h3a2 2 0 0 1 2 2v7"></path><path d="M11 18H8a2 2 0 0 1-2-2V9"></path></svg>
+      <sc-if value="{{open}}" hint-placeholder-val="{{ true }}"><span>Compare days</span></sc-if>
+    </a>
+    <a class="sbi" href="Efficiency.dc.html" aria-label="Efficiency" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; font-size: 13.5px; color: #b4b4bb; white-space: nowrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0" aria-hidden="true"><path d="m12 14 4-4"></path><path d="M3.34 19a10 10 0 1 1 17.32 0"></path></svg>
+      <sc-if value="{{open}}" hint-placeholder-val="{{ true }}"><span>Efficiency</span></sc-if>
+    </a>
+    <a class="sbi" href="Patterns.dc.html" aria-label="Patterns" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; font-size: 13.5px; color: #b4b4bb; white-space: nowrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path></svg>
+      <sc-if value="{{open}}" hint-placeholder-val="{{ true }}"><span>Patterns</span></sc-if>
+    </a>
+  </nav>
+
+  <sc-if value="{{open}}" hint-placeholder-val="{{ true }}">
+    <div style="height: 32px; display: flex; align-items: center; padding: 0 8px; margin-top: 16px; font-size: 12px; font-weight: 500; color: #8b8b93">Effort</div>
+    <div role="group" aria-label="Effort filter" style="display: flex; flex-direction: column; gap: 2px">
+      <sc-for list="{{efforts}}" as="e" hint-placeholder-count="7">
+        <button type="button" class="sbi" onClick="{{ e.pick }}" aria-pressed="{{ e.sel }}" style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 8px; border: 0; border-radius: 6px; font-size: 13px; cursor: pointer; text-align: left; white-space: nowrap; background: {{ e.bg }}; color: {{ e.fg }}">
+          <span style="width: 6px; height: 6px; border-radius: 3px; flex-shrink: 0; background: {{ e.dot }}"></span>
+          <span style="flex-grow: 1">{{ e.label }}</span>
+          <span class="mono" style="font-size: 11.5px; color: #8b8b93">{{ e.costLabel }}</span>
+        </button>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <div style="flex-grow: 1"></div>
+
+  <button type="button" class="sbi" aria-label="Ask about your usage" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; font-size: 13.5px; color: #b4b4bb; white-space: nowrap; cursor: pointer; text-align: left">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>
+    <sc-if value="{{open}}" hint-placeholder-val="{{ true }}"><span>Ask about your usage</span></sc-if>
+  </button>
+
+  <sc-if value="{{open}}" hint-placeholder-val="{{ true }}">
+    <div style="margin-top: 8px; padding: 12px; border: 1px solid #232326; border-radius: 8px; background: #121213; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <span class="mono" style="font-size: 13px; font-weight: 500">38,214 messages</span>
+        <span style="font-size: 12px; color: #8b8b93">Parsed in 412 ms · cache warm</span>
+      </div>
+      <button type="button" class="btn" style="height: 32px; border: 1px solid #2c2c30; border-radius: 6px; background: #161618; color: #fafafa; font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
+        Refresh
+      </button>
+    </div>
+  </sc-if>
+  <sc-if value="{{closed}}" hint-placeholder-val="{{ false }}">
+    <button type="button" class="sbi" aria-label="Refresh" style="display: flex; align-items: center; height: 32px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: #b4b4bb; cursor: pointer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
+    </button>
+  </sc-if>
+</aside>
+
+<main style="flex-grow: 1; min-width: 0; margin: 8px 8px 8px 0; background: #121213; border: 1px solid #232326; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden">
+  <header style="height: 56px; flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid #232326">
+    <button type="button" class="btn" onClick="{{toggle}}" aria-label="Toggle sidebar" style="width: 32px; height: 32px; border: 0; border-radius: 6px; background: transparent; color: #fafafa; display: flex; align-items: center; justify-content: center; cursor: pointer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M9 3v18"></path></svg>
+    </button>
+    <div style="width: 1px; height: 16px; background: #2c2c30"></div>
+    <nav aria-label="Breadcrumb" style="display: flex; align-items: center; gap: 8px; font-size: 13.5px">
+      <a href="Main.dc.html" style="color: #a1a1aa">Dashboard</a>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+      <span style="color: #fafafa; font-weight: 500">Compare days</span>
+    </nav>
+    <div style="flex-grow: 1"></div>
+    <div role="group" aria-label="Quick comparisons" style="display: flex; gap: 2px; padding: 3px; background: #0b0b0c; border: 1px solid #232326; border-radius: 8px">
+      <sc-for list="{{quick}}" as="q" hint-placeholder-count="4">
+        <button type="button" onClick="{{ q.pick }}" style="height: 26px; padding: 0 10px; border: 0; border-radius: 5px; font-size: 12.5px; font-weight: 500; cursor: pointer; background: {{ q.bg }}; color: {{ q.fg }}">{{ q.label }}</button>
+      </sc-for>
+    </div>
+    <button type="button" style="height: 34px; padding: 0 14px; border: 0; border-radius: 8px; background: {{accent}}; color: #1c1917; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>
+      Explain the difference
+    </button>
+  </header>
+
+  <div style="flex-grow: 1; min-height: 0; padding: 20px 24px 24px; display: flex; flex-direction: column; gap: 16px; overflow: hidden">
+    <div style="display: flex; align-items: center; gap: 16px">
+      <div style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1">
+        <h1 style="margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em">Compare days</h1>
+        <p style="margin: 0; font-size: 13.5px; color: #a1a1aa">Choose a slot, then click a day in the strip below.</p>
+      </div>
+      <div role="radiogroup" aria-label="Slot to set" style="display: flex; align-items: center; gap: 8px">
+        <button type="button" role="radio" aria-checked="{{slotA.active}}" onClick="{{slotA.pick}}" style="height: 44px; padding: 0 14px; border-radius: 10px; background: #161618; color: #fafafa; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 13px; border: {{slotA.border}}">
+          <span class="mono" style="width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #1c1917; background: {{colorA}}">A</span>
+          <span style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1.25"><span class="mono" style="font-weight: 500">{{slotA.label}}</span><span style="font-size: 11.5px; color: #8b8b93">{{slotA.dow}}</span></span>
+        </button>
+        <button type="button" onClick="{{swap}}" aria-label="Swap A and B" class="btn" style="width: 32px; height: 32px; border: 1px solid #2c2c30; border-radius: 8px; background: transparent; color: #a1a1aa; display: flex; align-items: center; justify-content: center; cursor: pointer">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"></path></svg>
+        </button>
+        <button type="button" role="radio" aria-checked="{{slotB.active}}" onClick="{{slotB.pick}}" style="height: 44px; padding: 0 14px; border-radius: 10px; background: #161618; color: #fafafa; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 13px; border: {{slotB.border}}">
+          <span class="mono" style="width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #1c1917; background: {{colorB}}">B</span>
+          <span style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1.25"><span class="mono" style="font-weight: 500">{{slotB.label}}</span><span style="font-size: 11.5px; color: #8b8b93">{{slotB.dow}}</span></span>
+        </button>
+      </div>
+    </div>
+
+    <div role="group" aria-label="Pick a day" style="display: flex; gap: 4px; padding: 10px 12px; background: #161618; border: 1px solid #26262a; border-radius: 12px">
+      <sc-for list="{{strip}}" as="d" hint-placeholder-count="29">
+        <button type="button" class="dayb" onClick="{{ d.pick }}" aria-label="{{ d.aria }}" title="{{ d.aria }}" style="flex: 1; height: 64px; padding: 4px 0 2px; border: 0; border-radius: 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; background: {{ d.bg }}">
+          <span style="width: 60%; border-radius: 2px 2px 0 0; height: {{ d.h }}px; background: {{ d.c }}"></span>
+          <span class="mono" style="font-size: 10.5px; color: {{ d.fg }}">{{ d.n }}</span>
+        </button>
+      </sc-for>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+      <sc-for list="{{cards}}" as="k" hint-placeholder-count="4">
+        <div style="background: #161618; border: 1px solid #26262a; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; align-items: center; justify-content: space-between">
+            <span style="font-size: 13px; color: #a1a1aa">{{ k.label }}</span>
+            <span class="mono" style="font-size: 11.5px; font-weight: 500; padding: 2px 6px; border-radius: 4px; background: #1f1f22; color: {{ k.deltaColor }}">{{ k.delta }}</span>
+          </div>
+          <div style="display: flex; align-items: baseline; gap: 14px">
+            <span class="mono" style="display: flex; align-items: baseline; gap: 6px"><span style="font-size: 11px; font-weight: 600; color: {{colorA}}">A</span><span style="font-size: 22px; font-weight: 600">{{ k.a }}</span></span>
+            <span class="mono" style="display: flex; align-items: baseline; gap: 6px"><span style="font-size: 11px; font-weight: 600; color: {{colorB}}">B</span><span style="font-size: 16px; color: #a1a1aa">{{ k.b }}</span></span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+      <section style="grid-column: span 2; background: #161618; border: 1px solid #26262a; border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between">
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 600">Hour by hour</h2>
+            <span style="font-size: 12.5px; color: #8b8b93">Cost per hour, local time</span>
+          </div>
+          <div style="display: flex; gap: 14px; font-size: 12px; color: #a1a1aa">
+            <span style="display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 2px; background: {{colorA}}"></span><span class="mono">{{slotA.label}}</span></span>
+            <span style="display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 2px; background: {{colorB}}"></span><span class="mono">{{slotB.label}}</span></span>
+          </div>
+        </div>
+        <div style="height: 150px; display: flex; align-items: flex-end; gap: 6px; border-bottom: 1px solid #2c2c30">
+          <sc-for list="{{hours}}" as="h" hint-placeholder-count="24">
+            <div title="{{ h.tip }}" style="flex: 1; height: 100%; display: flex; align-items: flex-end; gap: 1px">
+              <span style="flex: 1; border-radius: 2px 2px 0 0; height: {{ h.a }}%; background: {{colorA}}"></span>
+              <span style="flex: 1; border-radius: 2px 2px 0 0; height: {{ h.b }}%; background: {{colorB}}"></span>
+            </div>
+          </sc-for>
+        </div>
+        <div class="mono" style="display: flex; gap: 6px; font-size: 11px; color: #8b8b93; margin-top: -6px">
+          <sc-for list="{{hours}}" as="h" hint-placeholder-count="24">
+            <span style="flex: 1">{{ h.label }}</span>
+          </sc-for>
+        </div>
+      </section>
+
+      <section style="background: #161618; border: 1px solid #26262a; border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <h2 style="margin: 0; font-size: 15px; font-weight: 600">What changed</h2>
+          <span style="font-size: 12.5px; color: #8b8b93">A compared with B</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <sc-for list="{{findings}}" as="f" hint-placeholder-count="4">
+            <div style="display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.45">
+              <span style="width: 6px; height: 6px; border-radius: 3px; margin-top: 7px; flex-shrink: 0; background: {{ f.dot }}"></span>
+              <span style="color: #d4d4d8">{{ f.text }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; flex-grow: 1; min-height: 0">
+      <section style="background: #161618; border: 1px solid #26262a; border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <h2 style="margin: 0; font-size: 15px; font-weight: 600">Cost difference by model</h2>
+          <span style="font-size: 12.5px; color: #8b8b93">A minus B · right = A spent more</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <sc-for list="{{modelDiff}}" as="m" hint-placeholder-count="4">
+            <div style="display: grid; grid-template-columns: 84px minmax(0, 1fr) minmax(0, 1fr) 64px; gap: 0; align-items: center; font-size: 12.5px">
+              <span class="mono" style="color: #d4d4d8">{{ m.label }}</span>
+              <div style="display: flex; justify-content: flex-end; border-right: 1px solid #3f3f46; height: 14px; align-items: center"><span style="height: 10px; border-radius: 3px 0 0 3px; width: {{ m.neg }}%; background: {{colorB}}"></span></div>
+              <div style="display: flex; height: 14px; align-items: center"><span style="height: 10px; border-radius: 0 3px 3px 0; width: {{ m.pos }}%; background: {{colorA}}"></span></div>
+              <span class="mono" style="text-align: right">{{ m.diff }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <section style="background: #161618; border: 1px solid #26262a; border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <h2 style="margin: 0; font-size: 15px; font-weight: 600">Where the dollars went</h2>
+          <span style="font-size: 12.5px; color: #8b8b93">Cost by token type</span>
+        </div>
+        <sc-for list="{{mix}}" as="row" hint-placeholder-count="2">
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; justify-content: space-between; font-size: 12px"><span class="mono" style="color: {{ row.c }}; font-weight: 600">{{ row.slot }} · {{ row.day }}</span><span class="mono" style="color: #a1a1aa">{{ row.total }}</span></div>
+            <div style="display: flex; height: 14px; border-radius: 4px; overflow: hidden; gap: 1px">
+              <sc-for list="{{ row.parts }}" as="p" hint-placeholder-count="4">
+                <span title="{{ p.tip }}" style="height: 14px; width: {{ p.w }}%; background: {{ p.c }}"></span>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; font-size: 11.5px; color: #a1a1aa">
+          <sc-for list="{{mixLegend}}" as="l" hint-placeholder-count="4">
+            <span style="display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 2px; background: {{ l.c }}"></span>{{ l.label }}</span>
+          </sc-for>
+        </div>
+      </section>
+
+      <section style="background: #161618; border: 1px solid #26262a; border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; overflow: hidden">
+        <h2 style="margin: 0; font-size: 15px; font-weight: 600">Top sessions</h2>
+        <sc-for list="{{tops}}" as="t" hint-placeholder-count="2">
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <span class="mono" style="font-size: 11.5px; font-weight: 600; color: {{ t.c }}">{{ t.slot }} · {{ t.day }}</span>
+            <sc-for list="{{ t.rows }}" as="r" hint-placeholder-count="3">
+              <a href="Sessions.dc.html" style="display: grid; grid-template-columns: 76px minmax(0, 1fr) 54px 64px; gap: 8px; align-items: center; font-size: 12.5px; padding: 4px 0">
+                <span class="mono" style="color: #d4d4d8">{{ r.id }}</span>
+                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #a1a1aa">{{ r.project }}</span>
+                <span class="mono" style="text-align: right; color: #8b8b93">{{ r.turns }}</span>
+                <span class="mono" style="text-align: right">{{ r.cost }}</span>
+              </a>
+            </sc-for>
+          </div>
+        </sc-for>
+      </section>
+    </div>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#E07B53","options":["#E07B53","#6C9CF0","#3E9E8A","#E8B24A"]},"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const accent = this.props.accent ?? '#E07B53';
+    const colorA = accent;
+    const colorB = '#8AB4F8';
+    const collapsed = st.collapsed ?? false;
+    const effort = st.effort ?? 'all';
+    const a = st.a ?? 23;
+    const b = st.b ?? 16;
+    const slot = st.slot ?? 'A';
+    const quickKey = st.quick ?? 'week';
+    const money = (n) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const pctDelta = (x, y) => (y === 0 ? 0 : (x - y) / y * 100);
+    const fmtDelta = (d) => (d >= 0 ? '▲ ' : '▼ ') + Math.abs(d).toFixed(1) + '%';
+    const total = 1284.37;
+
+    const effortData = [
+      { key: 'all', label: 'All efforts', cost: 1284.37, dot: '#fafafa' },
+      { key: 'low', label: 'Low', cost: 41.10, dot: '#52525b' },
+      { key: 'medium', label: 'Medium', cost: 219.55, dot: '#71717a' },
+      { key: 'high', label: 'High', cost: 532.37, dot: '#a1a1aa' },
+      { key: 'xhigh', label: 'Extra', cost: 348.06, dot: '#d4d4d8' },
+      { key: 'max', label: 'Max', cost: 118.40, dot: accent },
+      { key: 'unknown', label: 'Unknown', cost: 24.89, dot: '#3f3f46' }
+    ];
+    const efforts = effortData.map((e) => {
+      const sel = e.key === effort;
+      return { label: e.label, dot: e.dot, sel, costLabel: '$' + Math.round(e.cost).toLocaleString('en-US'), bg: sel ? '#232326' : 'transparent', fg: sel ? '#fafafa' : '#b4b4bb', pick: () => this.setState({ effort: e.key }) };
+    });
+
+    const models = [
+      { label: 'opus-4.x', color: '#E07B53' },
+      { label: 'sonnet-4.x', color: '#6C9CF0' },
+      { label: 'fable-5', color: '#B69CF7' },
+      { label: 'haiku-4.5', color: '#3E9E8A' }
+    ];
+    const dows = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    let seed = 11;
+    const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    const raw = [];
+    for (let i = 0; i < 29; i++) {
+      const dow = (2 + i) % 7;
+      raw.push((0.55 + rnd() * 0.9) * (dow === 0 || dow === 6 ? 0.4 : 1));
+    }
+    const rawSum = raw.reduce((x, y) => x + y, 0);
+    const g = (x, m, s) => Math.exp(-((x - m) * (x - m)) / (2 * s * s));
+    const days = raw.map((r, i) => {
+      const cost = r / rawSum * total;
+      const shares = [58 + (rnd() - 0.5) * 18, 27 + (rnd() - 0.5) * 12, 11 + (rnd() - 0.5) * 8, 4 + rnd() * 3];
+      const ss = shares.reduce((x, y) => x + y, 0);
+      const msgs = Math.round(cost * 29.75);
+      let s2 = 101 + i * 37;
+      const r2 = () => (s2 = (s2 * 9301 + 49297) % 233280) / 233280;
+      const peak = 11 + r2() * 6;
+      const hRaw = Array.from({ length: 24 }, (_, h) => (h < 8 ? 0.01 : g(h, peak, 2.6 + r2()) + (0.3 + r2() * 0.5) * g(h, 20.5 + r2() * 2, 1.4)) * (0.7 + r2() * 0.6));
+      const hs = hRaw.reduce((x, y) => x + y, 0);
+      const sessions = Math.max(3, Math.round(cost * (0.26 + r2() * 0.12)));
+      const tokShare = [0.14 + r2() * 0.04, 0.26 + r2() * 0.06, 0.18 + r2() * 0.08, 0.34 + r2() * 0.06];
+      const ts = tokShare.reduce((x, y) => x + y, 0);
+      return {
+        i, cost, msgs, sessions, label: 'Sep ' + (i + 1), dow: dows[(2 + i) % 7],
+        mix: shares.map((s) => s / ss),
+        hours: hRaw.map((v) => v / hs * cost),
+        tok: tokShare.map((v) => v / ts),
+        r2
+      };
+    });
+    const A = days[a];
+    const B = days[b];
+    const maxCost = Math.max(...days.map((d) => d.cost));
+
+    const strip = days.map((d) => {
+      const isA = d.i === a;
+      const isB = d.i === b;
+      return {
+        n: d.i + 1,
+        aria: d.label + ' · ' + money(d.cost),
+        h: Math.max(3, d.cost / maxCost * 40).toFixed(1),
+        c: isA ? colorA : (isB ? colorB : '#3f3f46'),
+        fg: isA || isB ? '#fafafa' : '#8b8b93',
+        bg: isA || isB ? '#232326' : 'transparent',
+        pick: () => this.setState(slot === 'A' ? { a: d.i, slot: 'B', quick: null } : { b: d.i, slot: 'A', quick: null })
+      };
+    });
+
+    const quickDefs = [
+      { key: 'prev', label: 'vs previous day', set: () => ({ b: Math.max(0, a - 1) }) },
+      { key: 'week', label: 'vs same day last week', set: () => ({ b: Math.max(0, a - 7) }) },
+      { key: 'extremes', label: 'Busiest vs quietest weekday', set: () => {
+        const wk = days.filter((d) => d.dow !== 'Saturday' && d.dow !== 'Sunday');
+        const hi = wk.reduce((x, y) => (y.cost > x.cost ? y : x));
+        const lo = wk.reduce((x, y) => (y.cost < x.cost ? y : x));
+        return { a: hi.i, b: lo.i };
+      } }
+    ];
+    const quick = quickDefs.map((q) => {
+      const sel = q.key === quickKey;
+      return { label: q.label, bg: sel ? '#232326' : 'transparent', fg: sel ? '#fafafa' : '#a1a1aa', pick: () => this.setState(Object.assign({ quick: q.key }, q.set())) };
+    });
+
+    const perMsgA = A.cost / A.msgs;
+    const perMsgB = B.cost / B.msgs;
+    const turnsA = A.msgs / A.sessions;
+    const turnsB = B.msgs / B.sessions;
+    const card = (label, va, vb, fa, costLike) => {
+      const d = pctDelta(va, vb);
+      return { label, a: fa(va), b: fa(vb), delta: fmtDelta(d), deltaColor: costLike ? (d > 0 ? '#F0A36B' : '#8AB4F8') : '#d4d4d8' };
+    };
+    const cards = [
+      card('Cost', A.cost, B.cost, money, true),
+      card('Messages', A.msgs, B.msgs, (v) => v.toLocaleString('en-US'), false),
+      card('Avg turns / session', turnsA, turnsB, (v) => v.toFixed(0), false),
+      card('Cost / message', perMsgA, perMsgB, (v) => '$' + v.toFixed(4), true)
+    ];
+
+    const maxH = Math.max(...A.hours, ...B.hours);
+    const hh = (h) => String(h).padStart(2, '0') + ':00';
+    const hours = A.hours.map((v, h) => ({
+      a: (v / maxH * 100).toFixed(1), b: (B.hours[h] / maxH * 100).toFixed(1),
+      label: h % 3 === 0 ? String(h).padStart(2, '0') : '',
+      tip: hh(h) + ' · A ' + money(v) + ' · B ' + money(B.hours[h])
+    }));
+
+    const diffs = models.map((m, k) => ({ label: m.label, v: A.cost * A.mix[k] - B.cost * B.mix[k] }));
+    const maxAbs = Math.max(...diffs.map((d) => Math.abs(d.v)), 0.01);
+    const modelDiff = diffs.map((d) => ({
+      label: d.label,
+      pos: d.v > 0 ? (d.v / maxAbs * 100).toFixed(1) : '0',
+      neg: d.v < 0 ? (-d.v / maxAbs * 100).toFixed(1) : '0',
+      diff: (d.v >= 0 ? '+' : '−') + money(Math.abs(d.v)).replace('$', '$')
+    }));
+    const driver = diffs.slice().sort((x, y) => Math.abs(y.v) - Math.abs(x.v))[0];
+    const peakA = A.hours.indexOf(Math.max(...A.hours));
+    const peakB = B.hours.indexOf(Math.max(...B.hours));
+    const dCost = A.cost - B.cost;
+    const findings = [
+      { dot: dCost >= 0 ? '#F0A36B' : '#8AB4F8', text: A.label + ' cost ' + money(Math.abs(dCost)) + (dCost >= 0 ? ' more' : ' less') + ' than ' + B.label + ' (' + (A.cost / B.cost).toFixed(2) + '×).' },
+      { dot: '#d4d4d8', text: 'Biggest driver: ' + driver.label + ', ' + (driver.v >= 0 ? '+' : '−') + money(Math.abs(driver.v)) + '.' },
+      { dot: turnsA > turnsB * 1.15 ? '#F0A36B' : '#71717a', text: 'Sessions averaged ' + turnsA.toFixed(0) + ' turns vs ' + turnsB.toFixed(0) + (turnsA > turnsB * 1.15 ? ', so later turns re-read more context.' : '.') },
+      { dot: '#71717a', text: 'Peak hour ' + hh(peakA) + ' on A vs ' + hh(peakB) + ' on B.' }
+    ];
+
+    const tokColors = ['#71717a', '#d4d4d8', '#B69CF7', '#3E9E8A'];
+    const tokLabels = ['Input', 'Output', 'Cache write', 'Cache read'];
+    const mixRow = (slotName, d, c) => ({
+      slot: slotName, day: d.label, c, total: money(d.cost),
+      parts: d.tok.map((t, k) => ({ w: (t * 100).toFixed(1), c: tokColors[k], tip: tokLabels[k] + ' · ' + money(t * d.cost) + ' (' + Math.round(t * 100) + '%)' }))
+    });
+    const mix = [mixRow('A', A, colorA), mixRow('B', B, colorB)];
+    const mixLegend = tokLabels.map((l, k) => ({ label: l, c: tokColors[k] }));
+
+    const projects = ['claude-usage-dashboard', 'restaurant-ordering-system', 'portfolio', 'TrustDashboardFrontend', 'booktomb-api', 'egypt-mall'];
+    const topFor = (slotName, d, c) => {
+      let s3 = 7 + d.i * 53;
+      const r3 = () => (s3 = (s3 * 9301 + 49297) % 233280) / 233280;
+      const shares = [0.34 + r3() * 0.1, 0.18 + r3() * 0.08, 0.1 + r3() * 0.06];
+      return {
+        slot: slotName, day: d.label, c,
+        rows: shares.map((s) => ({
+          id: Math.floor(r3() * 0xffffffff).toString(16).padStart(8, '0'),
+          project: projects[Math.floor(r3() * projects.length)],
+          turns: Math.round(40 + r3() * 260) + ' t',
+          cost: money(d.cost * s)
+        }))
+      };
+    };
+    const tops = [topFor('A', A, colorA), topFor('B', B, colorB)];
+
+    const slotObj = (name, d) => ({
+      label: d.label, dow: d.dow, active: slot === name,
+      border: slot === name ? '1px solid ' + (name === 'A' ? colorA : colorB) : '1px solid #2c2c30',
+      pick: () => this.setState({ slot: name })
+    });
+
+    return {
+      accent, colorA, colorB,
+      open: !collapsed,
+      closed: collapsed,
+      sbw: collapsed ? '48px' : '256px',
+      toggle: () => this.setState({ collapsed: !collapsed }),
+      efforts, quick, strip, cards, hours, findings, modelDiff, mix, mixLegend, tops,
+      slotA: slotObj('A', A),
+      slotB: slotObj('B', B),
+      swap: () => this.setState({ a: b, b: a, quick: null })
+    };
+  }
+}
+</script>
+</body>
+</html>
