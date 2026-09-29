@@ -130,6 +130,7 @@ const VIEW_TITLES: Record<string, string> = {
   sessions: "Sessions",
   projects: "Projects",
   daily: "Daily",
+  compare: "Compare days",
   efficiency: "Efficiency",
   patterns: "Patterns",
 };

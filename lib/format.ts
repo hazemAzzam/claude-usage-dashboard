@@ -132,3 +132,18 @@ export function fmtUSDShort(n: number): string {
   if (a >= 0.01 || a === 0) return `$${n.toFixed(2)}`;
   return `$${n}`;
 }
+
+export const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+export const WEEKDAYS_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+// Local weekday (0 = Sun) of a YYYY-MM-DD key.
+export function weekdayOf(day: string): number {
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(y, m - 1, d).getDay();
+}
+
+// Local YYYY-MM-DD key `n` calendar days after `key` (DST-safe: uses Date parts).
+export function addDays(key: string, n: number): string {
+  const [y, m, d] = key.split("-").map(Number);
+  return dayKeyOf(new Date(y, m - 1, d + n).getTime());
+}

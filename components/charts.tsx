@@ -19,6 +19,7 @@ import {
 import { fmtUSDShort, num, shortDay, usdExact } from "@/lib/format";
 import type { DailyByModelRow, DailyModelLegend, EffortCostRow } from "@/lib/derive";
 import type { PlanValue, TurnRow } from "@/hooks/use-overview-view";
+import type { HourPair, ModelDiffRow, TokenTypeRow } from "@/hooks/use-compare-view";
 import type { Pareto, ScatterPoint, SessionScatter as ScatterModel } from "@/hooks/use-sessions-view";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
@@ -206,5 +207,98 @@ export function SessionScatter({ scatter }: { scatter: ScatterModel }) {
         ))}
       </ScatterChart>
     </ChartContainer>
+  );
+}
+
+// ---- Compare days ----
+// Slot colours. A is the primary accent, B a light blue: they differ in hue
+// AND lightness, and every use is also labelled with the text "A"/"B".
+export const SLOT_COLOR = { A: "hsl(var(--primary))", B: "hsl(217 90% 72%)" } as const;
+
+export function SlotBadge({ slot }: { slot: "A" | "B" }) {
+  return (
+    <span
+      className="inline-flex h-4 w-4 items-center justify-center rounded-[4px] font-mono text-[10px] font-semibold text-background"
+      style={{ background: SLOT_COLOR[slot] }}
+      aria-hidden
+    >
+      {slot}
+    </span>
+  );
+}
+
+export function PairedHourBars({ rows, summary }: { rows: HourPair[]; summary: string }) {
+  return (
+    <div role="img" aria-label={summary}>
+      <div className="flex h-36 items-end gap-[3px]">
+        {rows.map((h) => (
+          <div key={h.hour} title={h.tip} className="flex h-full flex-1 items-end gap-px">
+            <span className="w-1/2 rounded-t-[2px]" style={{ height: `${h.aPct}%`, minHeight: h.aPct > 0 ? 2 : 0, background: SLOT_COLOR.A }} />
+            <span className="w-1/2 rounded-t-[2px]" style={{ height: `${h.bPct}%`, minHeight: h.bPct > 0 ? 2 : 0, background: SLOT_COLOR.B }} />
+          </div>
+        ))}
+      </div>
+      <div className="mt-1 flex gap-[3px] font-mono text-[10px] text-muted-foreground">
+        {rows.map((h) => (
+          <span key={h.hour} className="flex-1 overflow-visible whitespace-nowrap">
+            {h.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function DivergingBars({ rows }: { rows: ModelDiffRow[] }) {
+  return (
+    <ul className="space-y-2">
+      {rows.map((m) => (
+        <li key={m.model} className="grid grid-cols-[88px_1fr_1fr_72px] items-center gap-2 text-xs">
+          <span className="flex items-center gap-1.5 truncate font-mono">
+            <span className="inline-block h-2 w-2 shrink-0 rounded-[2px]" style={{ background: m.color }} aria-hidden />
+            {m.label}
+          </span>
+          <span className="flex h-3 justify-end">
+            <span className="h-full rounded-l-[3px]" style={{ width: `${m.negPct}%`, background: SLOT_COLOR.B }} />
+          </span>
+          <span className="flex h-3">
+            <span className="h-full rounded-r-[3px]" style={{ width: `${m.posPct}%`, background: SLOT_COLOR.A }} />
+          </span>
+          <span className="text-right font-mono tabular-nums">{m.diffLabel}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function TokenMixBars({ rows, types }: { rows: TokenTypeRow[]; types: ReadonlyArray<{ key: string; label: string; color: string }> }) {
+  return (
+    <div className="space-y-3">
+      {rows.map((r) => (
+        <div key={r.slot} className="space-y-1">
+          <span className="sr-only">{r.summary}</span>
+          <div className="flex items-center justify-between font-mono text-xs" aria-hidden>
+            <span className="inline-flex items-center gap-1.5">
+              <SlotBadge slot={r.slot} />
+              {r.slot} · {r.dayLabel}
+            </span>
+            <span className="tabular-nums">{r.totalLabel}</span>
+          </div>
+          <div className="flex h-3 overflow-hidden rounded-[3px] bg-muted" aria-hidden>
+            {r.parts.map((p) => (
+              <span key={p.key} title={p.tip} style={{ width: `${p.sharePct}%`, background: p.color }} />
+            ))}
+          </div>
+        </div>
+      ))}
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        {types.map((t) => (
+          <span key={t.key} className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-2 w-2 rounded-[2px]" style={{ background: t.color }} aria-hidden />
+            {t.label}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }

@@ -125,6 +125,15 @@ A day-by-day table with a share-of-range bar split by model, tokens per $, and
 expandable per-model rows, plus stats: active days, average cost/day (with the
 weekend-vs-weekday note), peak day and tokens per $.
 
+### 🔀 Compare days
+Pick two days (slots A and B) from a strip of every day in the range and see
+them side by side: cost, messages, turns per session and cost per message with
+deltas, hour-by-hour paired bars, a generated "What changed" list, a per-model
+cost difference, cost by token type and each day's top sessions. Quick picks
+cover "vs previous day", "vs same day last week" and busiest vs quietest
+weekday (disabled when the target has no data or falls outside the range).
+If the range has no second active day, only the day strip and a hint show.
+
 ### 🧮 Efficiency
 Four action KPIs (cost per message, saved by caching, best output per $ model,
 Max-vs-Low effort multiple), a per-model table you can expand by effort level,
@@ -286,7 +295,7 @@ The client is split the same way React 19 encourages: **hooks own state, fetchin
 and derived data; components are presentational.** `app/(dashboard)/layout.tsx`
 mounts a `DashboardProvider` (`useDashboardFilters` + `useUsageSummary`) so filters and the
 fetched summary are shared across the per-view routes (`/`, `/sessions`, `/projects`,
-`/daily`, `/efficiency`, `/patterns`) without refetching on navigation — no `fetch`,
+`/daily`, `/compare`, `/efficiency`, `/patterns`) without refetching on navigation — no `fetch`,
 `useEffect`, or inline sorting/aggregation lives in the pages or `components/`. See `CLAUDE.md` for the full hook list and the server-only import rule.
 
 ---
@@ -312,11 +321,12 @@ claude-usage-dashboard/
 │   ├── use-plan-price.ts       # Plan price ($20/$100/$200) in localStorage
 │   ├── use-sessions-view.ts    # Sessions search/filter/sort + Pareto + scatter
 │   ├── use-daily-view.ts       # Daily rows (model split bar), stats, sort + expand
+│   ├── use-compare-view.ts     # Compare-days selection state + pure diff derivations
 │   ├── use-efficiency-view.ts  # Efficiency KPIs, model table, effort x model grid
 │   ├── use-patterns-view.ts    # Heatmap marginals + pattern stats
 │   └── use-projects-view.ts    # Projects list filter + detail model
 ├── components/
-│   ├── views/                # overview, sessions, projects, daily, efficiency, patterns — presentational
+│   ├── views/                # overview, sessions, projects, daily, compare, efficiency, patterns — presentational
 │   ├── ui/                   # shadcn primitives
 │   ├── charts.tsx            # Recharts wrappers (sparkline, turn-cost bars, plan value, stacked daily cost, Pareto, scatter)
 │   ├── chat-panel.tsx        # Streaming chat UI

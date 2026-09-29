@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   CalendarDaysIcon,
   FolderIcon,
+  GitCompareIcon,
   GaugeIcon,
   ListFilterIcon,
   Grid3x3Icon,
@@ -42,6 +43,7 @@ const NAV: NavItem[] = [
   { href: "/sessions", label: "Sessions", icon: MessagesSquareIcon, count: "sessions" },
   { href: "/projects", label: "Projects", icon: FolderIcon, count: "projects" },
   { href: "/daily", label: "Daily", icon: CalendarDaysIcon },
+  { href: "/compare", label: "Compare days", icon: GitCompareIcon },
   { href: "/efficiency", label: "Efficiency", icon: GaugeIcon },
   { href: "/patterns", label: "Patterns", icon: Grid3x3Icon },
 ];

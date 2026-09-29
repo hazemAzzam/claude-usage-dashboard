@@ -2,14 +2,13 @@
 
 import { useMemo } from "react";
 import type { DayBucket, Summary } from "@/lib/usage";
-import { cacheShare, modelColor, num, shortDay, shortModel, tokens, usdExact } from "@/lib/format";
+import { WEEKDAYS, weekdayOf, cacheShare, modelColor, num, shortDay, shortModel, tokens, usdExact } from "@/lib/format";
 import { safeDiv, shareOf, sum } from "@/lib/stats";
 import { useSortable } from "@/hooks/use-sortable";
 import { useExpandable } from "@/hooks/use-expandable";
 
 export type DailySortKey = "day" | "cost" | "messages" | "input" | "output" | "cacheCreate" | "cacheRead" | "perDollar";
 
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // All tokens (input + output + cache write + cache read) bought per $. Cache
 // reads dominate, which is the point: caching is what makes tokens cheap.
@@ -21,12 +20,6 @@ function compareDaily(a: DayBucket, b: DayBucket, key: DailySortKey): number {
   if (key === "day") return a.day.localeCompare(b.day);
   if (key === "perDollar") return tokensPerDollar(a) - tokensPerDollar(b);
   return (a[key] as number) - (b[key] as number);
-}
-
-/** Local weekday (0 = Sun) of a YYYY-MM-DD key. */
-export function weekdayOf(day: string): number {
-  const [y, m, d] = day.split("-").map(Number);
-  return new Date(y, m - 1, d).getDay();
 }
 
 // ---- per-row presentation model ----

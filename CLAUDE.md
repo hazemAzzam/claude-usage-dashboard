@@ -58,9 +58,9 @@ collapsed/expanded state persists across reloads) and renders the client
 `DashboardProvider` › `SidebarProvider` › `AppSidebar` + `SidebarInset`
 (`TopBar`, error banner, first-load skeleton / dimmed-on-refetch children,
 footer) plus the chat `Sheet`. Each view is its own tiny route
-(`app/(dashboard)/{page,sessions,projects,daily,efficiency,patterns}/page.tsx`)
+(`app/(dashboard)/{page,sessions,projects,daily,compare,efficiency,patterns}/page.tsx`)
 that calls `useLoadedDashboard()` and renders one existing view from
-`components/views/*` (`key={filters.rangeKey}` on Sessions/Projects so
+`components/views/*` (`key={filters.rangeKey}` on Sessions/Projects/Compare so
 per-range view state resets). `app/page.tsx` no longer exists; `app/layout.tsx`
 only owns `<html>`/`<body>`/fonts/metadata. There are no URL search params —
 filters live in memory only.
@@ -157,6 +157,27 @@ filters live in memory only.
   table; `deriveDailyRows` (share-of-range bar width, per-model parts, cache
   share, tokens/$) and `deriveDailyStats`. `tokensPerDollar` counts *all* token
   types (cache reads dominate, which is the point).
+- **`hooks/use-compare-view.ts`** — Compare days. State is `{a, b, slot}` (day
+  keys) held raw (`null` = "use the default") and re-resolved against the current
+  days on every render by the pure `resolveSelection`, so a selected day that
+  leaves the range/effort filter falls back to `defaultPair` (A = latest active
+  day; B = same weekday a week earlier if it has data, else the previous active
+  day; 0/1-day ranges yield a null B) with no effect. Only an explicit pick,
+  swap or quick pick pins days; `setSlot` does not. `swapSlots` is a no-op unless
+  both slots are set, and while B is null the view renders only the strip and a
+  hint (`compareHint`). Days come from `compareDays` (`fillDays` over `daySpan`,
+  idle days = zero rows; memoised once and passed to `dayStrip`/`quickPicks`).
+  Exported pure fns, all tested: `dayStrip`, `quickPicks`/`quickTarget`
+  (disabled when the target day is outside the range or has no data; `active` is
+  derived from the current a/b, not stored), `compareCards` (cost and cost/msg up
+  = warn; averages over a zero denominator show "—"/n/a), `pairHours` (shared
+  scale), `hoursSummary`/`tokenTypeRows().summary` (screen-reader text),
+  `modelDiff` (A−B, |diff| < $0.005 dropped, sorted by |diff|), `topSessionRows`,
+  `whatChanged` (`Finding[]`; never emits NaN/Infinity, ratio only when both days
+  have spend, "about the same" under half a cent). Weekday/date helpers
+  (`WEEKDAYS`, `WEEKDAYS_LONG`, `weekdayOf`, `addDays`) live in `lib/format.ts`
+  and are shared with the Daily and Patterns hooks. A/B colours live in
+  `components/charts.tsx` (`SLOT_COLOR`), always paired with an A/B text label.
 - **`hooks/use-efficiency-view.ts`** — `deriveEfficiencyKpis`,
   `deriveModelRows` (per-model/per-effort metrics for the expandable table),
   `effortModelGrid` (cost/message matrix, models as columns, with intensity for

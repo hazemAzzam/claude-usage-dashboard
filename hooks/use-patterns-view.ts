@@ -2,11 +2,9 @@
 
 import { useMemo } from "react";
 import type { Summary } from "@/lib/usage";
-import { usd, usdExact } from "@/lib/format";
+import { WEEKDAYS, WEEKDAYS_LONG, usd, usdExact } from "@/lib/format";
 import { shareOf, sum } from "@/lib/stats";
 
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const WEEKDAYS_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 // Monday-first reading order for the grid (heatmap is indexed 0 = Sunday).
 const ORDER = [1, 2, 3, 4, 5, 6, 0];
 

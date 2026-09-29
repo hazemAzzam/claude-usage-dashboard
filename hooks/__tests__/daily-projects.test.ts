@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { modelColor } from "../../lib/format";
+import { modelColor, weekdayOf } from "../../lib/format";
 import type { DayBucket, ProjectRow, SessionRow, Summary } from "../../lib/usage";
-import { deriveDailyRows, deriveDailyStats, rangeDayCount, tokensPerDollar, weekdayOf, weekendNote } from "../use-daily-view";
+import { deriveDailyRows, deriveDailyStats, rangeDayCount, tokensPerDollar, weekendNote } from "../use-daily-view";
 import { deriveProjectDetail, deriveProjectList, filterProjects, resolveSelected } from "../use-projects-view";
 
 const B = { cost: 0, input: 0, output: 0, cacheCreate: 0, cacheRead: 0, messages: 0, saved: 0 };
