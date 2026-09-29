@@ -11,6 +11,9 @@ updated via a persistent cache (in-memory hot copy TTL 5s; see "Parse cache").
 - **`lib/effort.ts`** and **`lib/pricing.ts`** are pure, single sources of truth
   — no `node:*` imports, safe to import from client components. `lib/effort.ts`
   owns the `Effort` type/order/labels; `lib/pricing.ts` owns per-model $/1M rates.
+- **`lib/stats.ts`** — client-safe pure numeric helpers (`pctDelta`,
+  `movingAverage`, `cumulative`, `median`, `shareOf`, `linearProjection`);
+  views/hooks use these rather than inline arithmetic.
 - **`lib/usage-cache.ts`** is server-only and owns transcript I/O: walking
   `~/.claude/projects/**/*.jsonl`, the persistent per-file parse cache (see
   "Parse cache" below), and merging cached lines into `UsageRecord[]`.
@@ -199,6 +202,35 @@ shared `empty()` bucket shape and `add()` accumulator — each record is folded
 into every relevant bucket in a single pass. Follow this pattern for new
 breakdowns rather than post-processing `records` again elsewhere.
 
+The same pass also folds in the cross-cutting extras:
+
+- **Message position** (`turnBuckets`, `TURN_BUCKETS`) uses a per-conversation
+  counter incremented for **every** record *before* the date/effort filters.
+  `buildRecords` returns records globally ts-sorted, so the counter is a
+  message's true position even when the session began before the selected
+  range. Don't move the increment below a `continue`. The counter is keyed by
+  `session + agent`: subagent (sidechain) transcripts carry the parent
+  `sessionId` but are separate conversations, so `ParsedLine`/`UsageRecord`
+  carry an `agent` field (`agentId`, else `"sidechain"`, else `""`) and
+  `CACHE_VERSION` was bumped to 2 for that line-parsing change. `agent` is not
+  part of the dedup key.
+- **Previous window** (`Summary.previous`) is the same number of whole *local
+  calendar days* ending the instant before `from` (computed with `Date` parts,
+  so a DST change can't shift it by an hour). **`planMonth`** is the calendar
+  month containing `to` (effort-filtered, not range-filtered). Both need
+  records outside the range, so they are folded in the same loop ahead of the
+  range check. `previous` is `null` for unbounded (`"all"`) ranges.
+  `summarize()` always receives every record — the route never pre-filters.
+- **`saved`, `cacheNetSaved` and `tokenCost`** come from real per-model rates
+  (`lib/pricing.ts`, memoised; priced once per record) at summarize time, never
+  from the cache — a pricing change needs no `CACHE_VERSION` bump. `saved` (on
+  every bucket) is **gross** cache-read savings (read tokens at input rate minus
+  cache-read rate). `Summary.cacheNetSaved` (and `previous.cacheNetSaved`) is
+  net: gross minus the cache-write premium over plain input, using the exact
+  write cost (TTL-aware). `tokenCost.cacheWrite` is the residual (cost minus
+  input/output/cacheRead). Per-day `hours` use local hours, like
+  `byHour`/`heatmap`.
+
 ## UI primitives (shadcn on Tailwind v3)
 
 `components.json` targets shadcn `base-nova` (Base UI), but the project is on
@@ -228,10 +260,15 @@ v4 syntax that silently does nothing.
 
 ## Verification
 
-`npx tsc --noEmit && npm run lint && npm run build` must pass. `npm run lint`
+`npx tsc --noEmit && npm run lint && npm run build && npm test` must pass. `npm run lint`
 now runs `eslint .` against the flat config in `eslint.config.mjs` (ESLint 9;
-`eslint-config-next` for Next 16.3). There is no test suite. Manual/browser
-verification is not required for routine changes.
+`eslint-config-next` for Next 16.3). `npm test` runs vitest
+(`lib/__tests__/*.test.ts`; `server-only` is aliased to an empty module in
+`vitest.config.mts` so `summarize()` is importable in plain Node; TZ is pinned
+to America/New_York there because bucketing is local-time and the DST test
+needs a DST zone). Add a test
+when changing `summarize()` or `lib/stats.ts`. Manual/browser verification is
+not required for routine changes.
 
 Stack: Next.js 16.3.x + React 19.3.x, Node >=20.9 (see `engines` in
 `package.json`).

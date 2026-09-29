@@ -25,7 +25,9 @@ import type { UsageRecord } from "./usage";
 // different dedup-key derivation, etc). A mismatch vs. the persisted index's
 // `version` (or any other structural problem with the cache file) forces a
 // full rebuild instead of trusting stale/incompatible rows.
-const CACHE_VERSION = 1;
+// v2: ParsedLine gained `agent` (subagent/sidechain id) so message position
+// can be counted per conversation rather than per parent sessionId.
+const CACHE_VERSION = 2;
 
 export function projectsDir(): string {
   return process.env.CLAUDE_PROJECTS_DIR || path.join(homedir(), ".claude", "projects");
@@ -73,6 +75,9 @@ export interface ParsedLine {
   cacheRead: number;
   ttl5m: number | null;
   ttl1h: number | null;
+  // agentId for subagent lines, "sidechain" if isSidechain without an id, else
+  // "" (main thread). Not part of the dedup key.
+  agent: string;
   key: string | null;
 }
 
@@ -255,6 +260,8 @@ interface RawLine {
   cwd?: string;
   sessionId?: string;
   requestId?: string;
+  agentId?: string;
+  isSidechain?: boolean;
   message?: { id?: string; model?: string; usage?: Usage };
   effort?: string;
   perTurnEffort?: string | null;
@@ -305,6 +312,7 @@ function parseLine(line: string, folder: string): ParsedLine | null {
     cacheRead: usage.cache_read_input_tokens ?? 0,
     ttl5m: ttl5m === undefined ? null : ttl5m,
     ttl1h: ttl1h === undefined ? null : ttl1h,
+    agent: rec.agentId || (rec.isSidechain ? "sidechain" : ""),
     key: dedupKey,
   };
 }
@@ -585,6 +593,7 @@ function lineToRecord(line: ParsedLine): UsageRecord | null {
     project: line.project,
     model: line.model,
     session: line.session,
+    agent: line.agent,
     cost,
     input: line.input,
     output: line.output,
