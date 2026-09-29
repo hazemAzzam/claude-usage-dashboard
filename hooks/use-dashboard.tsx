@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { EFFORT_LABEL, type Effort } from "@/lib/effort";
-import { num, tokens, usd } from "@/lib/format";
+import { fmtCount, num, tokens, usd } from "@/lib/format";
 import type { Summary } from "@/lib/usage";
 import { effortOptions, useDashboardFilters } from "@/hooks/use-dashboard-filters";
 import { useChat, type ChatState } from "@/hooks/use-chat";
@@ -110,7 +110,7 @@ export type ParseStats = { source: string; footer: string } | null;
 export function parseStats(data: Summary | null): ParseStats {
   if (!data) return null;
   return {
-    source: `${num(data.totals.messages)} messages · parsed in ${data.parseMs} ms · cache ${data.cache}`,
+    source: `${fmtCount(data.totals.messages, "message")} · parsed in ${data.parseMs} ms · cache ${data.cache}`,
     footer: `Parsed ${tokens(data.totals.messages)} messages in ${data.parseMs} ms · data cached, click Refresh to re-scan · costs are list-price equivalents, not your subscription billing.`,
   };
 }

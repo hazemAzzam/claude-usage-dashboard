@@ -2,7 +2,7 @@
 
 import { useDeferredValue, useMemo, useState } from "react";
 import type { SessionRow, Summary } from "@/lib/usage";
-import { fmtShare, modelColor, modelPalette, shortModel, num, usdExact } from "@/lib/format";
+import { fmtCount, fmtShare, modelColor, modelPalette, shortModel, num, usdExact } from "@/lib/format";
 import { cumulative, median, shareOf } from "@/lib/stats";
 import { useSortable } from "@/hooks/use-sortable";
 import { useExpandable } from "@/hooks/use-expandable";
@@ -143,7 +143,7 @@ export function deriveScatter(sessions: SessionRow[], colorOf: (model: string) =
       messages: s.messages,
       cost: s.cost,
       outlier,
-      tip: `${s.project} · ${shortModel(s.model)} · ${num(s.messages)} msgs · ${usdExact(s.cost)}${outlier ? " · well above typical for its length" : ""}`,
+      tip: `${s.project} · ${shortModel(s.model)} · ${fmtCount(s.messages, "msg")} · ${usdExact(s.cost)}${outlier ? " · well above typical for its length" : ""}`,
     };
     const list = byModel.get(s.model);
     if (list) list.push(pt);
@@ -168,7 +168,7 @@ export function extraModelsLabel(s: Pick<SessionRow, "models">): string {
 
 /** "37 of 412 sessions" (or just the total when nothing is filtered out). */
 export function sessionCountLabel(shown: number, total: number): string {
-  return shown === total ? `${num(total)} sessions` : `${num(shown)} of ${num(total)} sessions`;
+  return shown === total ? fmtCount(total, "session") : `${num(shown)} of ${fmtCount(total, "session")}`;
 }
 
 // Search/filter/sort + row-expand view model for the Sessions table. The

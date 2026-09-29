@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { DayBucket, Summary } from "@/lib/usage";
-import { WEEKDAYS, weekdayOf, cacheShare, modelColor, modelPalette, num, shortDay, shortModel, tokens, usdExact } from "@/lib/format";
+import { WEEKDAYS, weekdayOf, cacheShare, fmtCount, modelColor, modelPalette, num, shortDay, shortModel, tokens, usdExact } from "@/lib/format";
 import { safeDiv, shareOf, sum } from "@/lib/stats";
 import { useSortable } from "@/hooks/use-sortable";
 import { useExpandable } from "@/hooks/use-expandable";
@@ -28,6 +28,7 @@ export interface DailyModelPart {
   label: string;
   color: string;
   messages: number;
+  messagesLabel: string;
   cost: number;
   costLabel: string;
   pctOfDay: number; // 0..100
@@ -56,6 +57,7 @@ export function deriveDailyRows(rows: DayBucket[], maxCost: number, colorOf: (mo
       label: shortModel(m.model),
       color: colorOf(m.model),
       messages: m.messages,
+      messagesLabel: fmtCount(m.messages, "msg"),
       cost: m.cost,
       costLabel: usdExact(m.cost),
       pctOfDay: shareOf(m.cost, d.cost) * 100,

@@ -31,6 +31,11 @@ export function num(n: number): string {
   return n.toLocaleString("en-US");
 }
 
+/** "1 msg" / "721 msgs" — count with thousands separators plus a noun that takes a plain "s" in the plural. */
+export function fmtCount(n: number, noun: string): string {
+  return `${num(n)} ${noun}${n === 1 ? "" : "s"}`;
+}
+
 export function shortDay(day: string): string {
   // YYYY-MM-DD -> "Jun 8"
   const [, m, d] = day.split("-").map(Number);

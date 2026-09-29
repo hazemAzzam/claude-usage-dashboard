@@ -303,3 +303,21 @@ describe("summarize: allModels", () => {
     expect(s.byModel.map((m) => m.model)).not.toContain("claude-opus-4-8");
   });
 });
+
+describe("summarize: <synthetic> records", () => {
+  it("are ignored in totals, byModel, allModels and turn positions", () => {
+    const now = at(2026, 9, 20);
+    const zero = { input: 0, output: 0, cacheCreate: 0, cacheRead: 0, cost: 0 };
+    const records = [
+      rec(2026, 9, 19, "s", { h: 9 }),
+      rec(2026, 9, 19, "s", { h: 10, model: "<synthetic>", ...zero }),
+      rec(2026, 9, 19, "s", { h: 11 }),
+    ];
+    const s = summarize(records, { from: at(2026, 9, 1), to: now }, META, { now });
+    expect(s.totals.messages).toBe(2);
+    expect(s.byModel.map((m) => m.model)).toEqual([MODEL]);
+    expect(s.allModels).toEqual([MODEL]);
+    // Two real turns => positions 1 and 2 only; a counted synthetic would push the second to 3.
+    expect(s.turnBuckets.reduce((n, b) => n + b.messages, 0)).toBe(2);
+  });
+});

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ProjectRow, SessionRow, Summary } from "@/lib/usage";
-import { fmtShare, modelColor, modelPalette, num, shortModel, usdExact, usdFine } from "@/lib/format";
+import { fmtShare, modelColor, modelPalette, fmtCount, num, shortModel, usdExact, usdFine } from "@/lib/format";
 import { fillDays, safeDiv, shareOf } from "@/lib/stats";
 import { daySpan, shortSessionId, type DailyByModelRow, type DailyModelLegend } from "@/lib/derive";
 
@@ -29,7 +29,7 @@ export function deriveProjectList(projects: ProjectRow[], maxCost: number): Proj
     project: p.project,
     costLabel: usdExact(p.cost),
     widthPct: shareOf(p.cost, maxCost) * 100,
-    sessionsLabel: `${num(p.sessions)} sessions`,
+    sessionsLabel: fmtCount(p.sessions, "session"),
   }));
 }
 
@@ -119,7 +119,7 @@ export function useProjectsView(data: Summary) {
     () => (active ? deriveProjectDetail(active, data.totals.cost, data.allSessions, span, colorOf) : null),
     [active, data.totals.cost, data.allSessions, span, colorOf],
   );
-  const countLabel = visible.length === projects.length ? `${num(projects.length)} projects` : `${num(visible.length)} of ${num(projects.length)} projects`;
+  const countLabel = visible.length === projects.length ? fmtCount(projects.length, "project") : `${num(visible.length)} of ${fmtCount(projects.length, "project")}`;
 
   return { list, detail, activeProject: active?.project, setSelected, query, setQuery, countLabel, total: projects.length };
 }

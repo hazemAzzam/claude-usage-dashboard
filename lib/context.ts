@@ -1,13 +1,13 @@
 import { cacheState, getRecords, summarize, type Summary } from "./usage";
 import { EFFORT_LABEL } from "./effort";
-import { tokens, usdExact, usdFine } from "./format";
+import { fmtCount, tokens, usdExact, usdFine } from "./format";
 
 function totalsLine(s: Summary): string {
   const t = s.totals;
   const inTotal = t.input + t.cacheCreate + t.cacheRead;
   const cacheShare = inTotal > 0 ? Math.round((t.cacheRead / inTotal) * 100) : 0;
   return (
-    `cost ${usdExact(t.cost)}, ${t.sessions} sessions, ${t.messages} assistant messages, ` +
+    `cost ${usdExact(t.cost)}, ${fmtCount(t.sessions, "session")}, ${fmtCount(t.messages, "assistant message")}, ` +
     `tokens(input ${tokens(t.input)}, output ${tokens(t.output)}, cache-write ${tokens(t.cacheCreate)}, ` +
     `cache-read ${tokens(t.cacheRead)}, cache-read share ${cacheShare}% of input)`
   );
@@ -40,17 +40,17 @@ export async function buildUsageContext(): Promise<string> {
   lines.push("");
   lines.push("## Cost by model (all time)");
   for (const m of all.byModel.filter((m) => m.cost > 0)) {
-    lines.push(`- ${m.model}: ${usdExact(m.cost)}, ${m.messages} msgs, ${tokens(m.input + m.output + m.cacheCreate + m.cacheRead)} tokens`);
+    lines.push(`- ${m.model}: ${usdExact(m.cost)}, ${fmtCount(m.messages, "msg")}, ${tokens(m.input + m.output + m.cacheCreate + m.cacheRead)} tokens`);
   }
   lines.push("");
   lines.push("## Top projects by cost (all time)");
   for (const p of all.byProject.slice(0, 12)) {
-    lines.push(`- ${p.project}: ${usdExact(p.cost)}, ${p.sessions} sessions, ${p.messages} msgs`);
+    lines.push(`- ${p.project}: ${usdExact(p.cost)}, ${fmtCount(p.sessions, "session")}, ${fmtCount(p.messages, "msg")}`);
   }
   lines.push("");
   lines.push("## Most expensive sessions");
   for (const s of all.topSessions.slice(0, 10)) {
-    lines.push(`- ${s.project} on ${s.day}: ${usdExact(s.cost)}, ${s.messages} msgs`);
+    lines.push(`- ${s.project} on ${s.day}: ${usdExact(s.cost)}, ${fmtCount(s.messages, "msg")}`);
   }
   lines.push("");
   lines.push("## Cost by model × effort (all time)");
@@ -62,7 +62,7 @@ export async function buildUsageContext(): Promise<string> {
   for (const m of all.byModel.filter((m) => m.cost > 0)) {
     for (const e of m.efforts ?? []) {
       lines.push(
-        `- ${m.model} / ${EFFORT_LABEL[e.effort]}: ${e.messages} msgs, ` +
+        `- ${m.model} / ${EFFORT_LABEL[e.effort]}: ${fmtCount(e.messages, "msg")}, ` +
           `${Math.round(e.messages ? e.output / e.messages : 0)} output/msg, ` +
           `${usdFine(e.messages ? e.cost / e.messages : 0)}/msg`,
       );
@@ -71,7 +71,7 @@ export async function buildUsageContext(): Promise<string> {
   lines.push("");
   lines.push("## Daily cost (last 30 days)");
   for (const d of d30.byDay) {
-    lines.push(`- ${d.day}: ${usdExact(d.cost)} (${d.messages} msgs)`);
+    lines.push(`- ${d.day}: ${usdExact(d.cost)} (${fmtCount(d.messages, "msg")})`);
   }
   return lines.join("\n");
 }

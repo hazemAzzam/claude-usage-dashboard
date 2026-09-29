@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { DayBucket, Summary } from "@/lib/usage";
 import { daySpan, zeroDay } from "@/lib/derive";
-import { WEEKDAYS_LONG, addDays, fmtDelta, fmtMultiple, modelColor, modelPalette, num, shortDay, shortModel, usdExact, usdFine, weekdayOf } from "@/lib/format";
+import { WEEKDAYS_LONG, addDays, fmtCount, fmtDelta, fmtMultiple, modelColor, modelPalette, num, shortDay, shortModel, usdExact, usdFine, weekdayOf } from "@/lib/format";
 import { fillDays, pctDelta, shareOf, sum } from "@/lib/stats";
 
 export type Slot = "A" | "B";
@@ -307,7 +307,7 @@ export function topSessionRows(A: DayBucket, B: DayBucket): TopSessionsGroup[] {
       session: s.session,
       id: s.session.slice(0, 8),
       project: s.project,
-      turnsLabel: `${num(s.messages)} turns`,
+      turnsLabel: fmtCount(s.messages, "turn"),
       costLabel: usdExact(s.cost),
     })),
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayKeyOf, fmtDelta, fmtMultiple, fmtShare, fmtUSDShort, modelColor,
+import { dayKeyOf, fmtCount, fmtDelta, fmtMultiple, fmtShare, fmtUSDShort, modelColor,
   effortColor, modelPalette, shortModel } from "../format";
 
 describe("fmtDelta", () => {
@@ -88,5 +88,14 @@ describe("fmtUSDShort", () => {
 describe("dayKeyOf", () => {
   it("is the local calendar day", () => {
     expect(dayKeyOf(new Date(2026, 8, 5, 23, 59).getTime())).toBe("2026-09-05");
+  });
+});
+
+describe("fmtCount", () => {
+  it("singularises exactly 1 and separates thousands", () => {
+    expect(fmtCount(1, "msg")).toBe("1 msg");
+    expect(fmtCount(0, "msg")).toBe("0 msgs");
+    expect(fmtCount(721, "msg")).toBe("721 msgs");
+    expect(fmtCount(12345, "session")).toBe("12,345 sessions");
   });
 });

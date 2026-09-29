@@ -404,6 +404,16 @@ only literal `#ccc`/`#fff` are recharts attribute selectors in
 - Filters (date range, effort) are applied **inside `summarize()`**, before
   aggregation, so every view/table/chart gets a consistently filtered `Summary`
   — never filter a subset of the data downstream in a single view.
+- **`<synthetic>` model records are skipped** at the top of `summarize()`'s loop
+  (before the per-session position counter and every bucket, including
+  `allModels`). Claude Code writes assistant lines with `model: "<synthetic>"`
+  and all-zero usage for locally generated notices (e.g. `isApiErrorMessage`,
+  `error: "rate_limit"`, "You've hit your session limit"). They are not API
+  calls, so counting them would inflate message/turn counts and add a phantom
+  model. The skip lives in `summarize()`, not the parser, so `CACHE_VERSION`
+  is unchanged.
+- Count + noun strings go through `fmtCount(n, "msg")` in `lib/format.ts`
+  ("1 msg" / "721 msgs"); don't hand-build `${n} msgs`.
 
 ## Verification
 

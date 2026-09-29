@@ -335,6 +335,8 @@ export function summarize(
   >();
 
   for (const r of records) {
+    // Claude Code's locally generated notices (rate-limit etc.), not API calls. See CLAUDE.md "Rules".
+    if (r.model === "<synthetic>") continue;
     const posKey = r.agent ? `${r.session}\0${r.agent}` : r.session;
     const pos = (sessionPos.get(posKey) ?? 0) + 1;
     sessionPos.set(posKey, pos);

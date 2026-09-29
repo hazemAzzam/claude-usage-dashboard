@@ -117,8 +117,8 @@ function DayRow({ r, open, onToggle }: { r: DailyRow; open: boolean; onToggle: (
                 <div className="h-full rounded-full" style={{ width: `${p.pctOfDay}%`, background: p.color }} />
               </div>
             </TableCell>
-            <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{num(p.messages)} msgs</TableCell>
-            <TableCell colSpan={4} />
+            <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{p.messagesLabel}</TableCell>
+            <TableCell colSpan={5} />
             <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{p.costLabel}</TableCell>
           </TableRow>
         ))}
