@@ -45,3 +45,90 @@ export function cacheShare(t: { input: number; cacheCreate: number; cacheRead: n
   const denom = t.input + t.cacheCreate + t.cacheRead;
   return denom > 0 ? (t.cacheRead / denom) * 100 : 0;
 }
+
+// "claude-opus-4-8-20250101" -> "opus-4-8". Lives here (not in components/)
+// so hooks can build labels without importing from the UI layer.
+export function shortModel(m: string): string {
+  return m.replace(/^claude-/, "").replace(/-\d{8}$/, "");
+}
+
+// One colour per model FAMILY (matches the design mockups), with lightness
+// nudged per version so two models of the same family (opus-4-1 vs opus-4-8)
+// stay distinguishable in stacked bars and legends. Stateless and
+// deterministic: the shift depends only on the id's version digits, so a model
+// has the same colour in every chart and table.
+const FAMILY_COLORS: Array<[string, string]> = [
+  ["opus", "#E07B53"],
+  ["sonnet", "#6C9CF0"],
+  ["fable", "#B69CF7"],
+  ["haiku", "#3E9E8A"],
+];
+const FALLBACK_COLORS = ["#E8B24A", "#8FBF6A", "#D66FA0", "#7FB7C4"];
+const LIGHTNESS_SHIFTS = [0, -10, 10, -18, 18];
+
+function hexToHsl(hex: string): [number, number, number] {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return [0, 0, l * 100];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h *= 60;
+  return [h < 0 ? h + 360 : h, s * 100, l * 100];
+}
+
+export function modelColor(model: string): string {
+  const id = model.toLowerCase().replace(/-\d{8}$/, "");
+  const family = FAMILY_COLORS.find(([f]) => id.includes(f));
+  let base: string;
+  if (family) base = family[1];
+  else {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    return FALLBACK_COLORS[h % FALLBACK_COLORS.length];
+  }
+  const nums = id.match(/\d+/g) ?? [];
+  const version = Number(nums[0] ?? 0) * 10 + Number(nums[1] ?? 0);
+  const shift = LIGHTNESS_SHIFTS[version % LIGHTNESS_SHIFTS.length];
+  if (shift === 0) return base;
+  const [h, s, l] = hexToHsl(base);
+  return `hsl(${h.toFixed(0)} ${s.toFixed(0)}% ${Math.min(80, Math.max(42, l + shift)).toFixed(0)}%)`;
+}
+
+// "62%" from a 0..1 share.
+export function fmtShare(share: number, digits = 0): string {
+  return `${(share * 100).toFixed(digits)}%`;
+}
+
+// "7.4×" from a ratio.
+export function fmtMultiple(x: number, digits = 1): string {
+  return `${x.toFixed(digits)}×`;
+}
+
+// A relative change as "▲ 12.3%" / "▼ 4.0%"; "n/a" when there is no baseline.
+// The arrow is text so the direction survives without colour.
+export function fmtDelta(delta: number | null): string {
+  if (delta === null) return "n/a";
+  const pct = (Math.abs(delta) * 100).toFixed(1);
+  if (delta === 0 || pct === "0.0") return "0.0%";
+  return `${delta > 0 ? "▲" : "▼"} ${pct}%`;
+}
+
+// Local YYYY-MM-DD key of an epoch-ms instant (same convention as UsageRecord.day).
+export function dayKeyOf(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// Compact axis-tick dollars: $0.001, $0.50, $12, $1.5K.
+export function fmtUSDShort(n: number): string {
+  const a = Math.abs(n);
+  if (a >= 1000) return `$${(n / 1000).toFixed(1).replace(/\.0$/, "")}K`;
+  if (a >= 10) return `$${Math.round(n)}`;
+  if (a >= 0.01 || a === 0) return `$${n.toFixed(2)}`;
+  return `$${n}`;
+}

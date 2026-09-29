@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cumulative, linearProjection, median, movingAverage, pctDelta, shareOf } from "../stats";
+import { cumulative, fillDays, linearProjection, median, movingAverage, pctDelta, shareOf } from "../stats";
 
 describe("pctDelta", () => {
   it("computes relative change", () => {
@@ -70,5 +70,27 @@ describe("linearProjection", () => {
   it("0 for no data or no elapsed days", () => {
     expect(linearProjection([], 3, 30)).toBe(0);
     expect(linearProjection([5], 0, 30)).toBe(0);
+  });
+});
+
+describe("fillDays", () => {
+  const make = (day: string) => ({ day, v: 0 });
+  it("inserts zero rows for idle days and keeps existing rows", () => {
+    const out = fillDays([{ day: "2026-09-01", v: 5 }, { day: "2026-09-04", v: 7 }], "2026-09-01", "2026-09-05", make);
+    expect(out.map((r) => r.v)).toEqual([5, 0, 0, 7, 0]);
+    expect(out.map((r) => r.day)).toEqual(["2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04", "2026-09-05"]);
+  });
+  it("crosses month and year ends", () => {
+    expect(fillDays([], "2026-12-30", "2027-01-02", make).map((r) => r.day)).toEqual(["2026-12-30", "2026-12-31", "2027-01-01", "2027-01-02"]);
+  });
+  it("does not skip or repeat a day across DST changes (America/New_York)", () => {
+    const spring = fillDays([], "2026-03-07", "2026-03-10", make).map((r) => r.day);
+    expect(spring).toEqual(["2026-03-07", "2026-03-08", "2026-03-09", "2026-03-10"]);
+    const fall = fillDays([], "2026-10-31", "2026-11-03", make).map((r) => r.day);
+    expect(fall).toEqual(["2026-10-31", "2026-11-01", "2026-11-02", "2026-11-03"]);
+  });
+  it("drops rows outside the span and returns [] for an inverted span", () => {
+    expect(fillDays([{ day: "2026-08-01", v: 9 }], "2026-09-01", "2026-09-02", make).map((r) => r.v)).toEqual([0, 0]);
+    expect(fillDays([], "2026-09-05", "2026-09-01", make)).toEqual([]);
   });
 });

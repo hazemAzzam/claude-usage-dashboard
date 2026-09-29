@@ -1,285 +1,210 @@
 "use client";
 
-import { useState } from "react";
 import {
   Area,
   AreaChart,
   Bar,
   BarChart,
   Cell,
+  ComposedChart,
+  LabelList,
   Line,
   LineChart,
-  Pie,
-  PieChart,
+  ReferenceLine,
+  Scatter,
+  ScatterChart,
   XAxis,
   YAxis,
 } from "recharts";
-import type { Summary } from "@/lib/usage";
-import { shortDay, tokens, usd, usdExact } from "@/lib/format";
-import { shortModel } from "@/components/stats";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
+import { fmtUSDShort, num, shortDay, usdExact } from "@/lib/format";
+import type { DailyByModelRow, DailyModelLegend, EffortCostRow } from "@/lib/derive";
+import type { PlanValue, TurnRow } from "@/hooks/use-overview-view";
+import type { Pareto, ScatterPoint, SessionScatter as ScatterModel } from "@/hooks/use-sessions-view";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
-// shadcn exposes --chart-1..5 as theme tokens (light + dark).
-export const PALETTE = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
-];
+// All chart components are presentational: they receive rows already derived
+// by a hook (hooks/use-*-view.ts) and only map them onto Recharts primitives.
 
-export function CostOverTime({ data }: { data: Summary["byDay"] }) {
-  const config = { cost: { label: "Cost", color: "hsl(var(--chart-1))" } } satisfies ChartConfig;
+const ACCENT = "hsl(var(--primary))";
+const GRID_TEXT = "text-[11px]";
+
+// ---- shared legend ----
+export function ModelLegend({ items, avg }: { items: DailyModelLegend[]; avg?: string }) {
   return (
-    <ChartContainer config={config} className="aspect-auto h-[260px] w-full">
-      <AreaChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-        <defs>
-          <linearGradient id="costFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-cost)" stopOpacity={0.45} />
-            <stop offset="100%" stopColor="var(--color-cost)" stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <XAxis
-          dataKey="day"
-          tickFormatter={shortDay}
-          tickLine={false}
-          axisLine={false}
-          tickMargin={8}
-          minTickGap={24}
-          className="text-[11px]"
-        />
-        <YAxis
-          tickFormatter={(v) => `$${v}`}
-          tickLine={false}
-          axisLine={false}
-          width={48}
-          className="text-[11px]"
-        />
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+      {items.map((m) => (
+        <span key={m.model} className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-2 w-2 rounded-[2px]" style={{ background: m.color }} aria-hidden />
+          {m.label}
+        </span>
+      ))}
+      {avg && (
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-[2px] w-3 bg-foreground" aria-hidden />
+          {avg}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ---- KPI sparkline ----
+export function Sparkline({ data, label }: { data: Array<{ i: number; v: number }>; label: string }) {
+  if (data.length < 2) return null;
+  return (
+    <ChartContainer config={{}} className="aspect-auto h-8 w-24" role="img" aria-label={label}>
+      <LineChart data={data} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
+        <YAxis hide domain={["dataMin", "dataMax"]} />
+        <Line type="monotone" dataKey="v" stroke={ACCENT} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+      </LineChart>
+    </ChartContainer>
+  );
+}
+
+// ---- cost per message by position in the session ----
+function TurnTick({ x, y, payload, rows }: { x?: number; y?: number; payload?: { index: number; value: string }; rows: TurnRow[] }) {
+  const row = payload ? rows[payload.index] : undefined;
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text textAnchor="middle" dy={12} className="fill-foreground text-[11px]">
+        {payload?.value}
+      </text>
+      <text textAnchor="middle" dy={26} className="fill-muted-foreground text-[10px]">
+        {row?.shareLabel} of $
+      </text>
+    </g>
+  );
+}
+
+export function TurnCostBars({ rows }: { rows: TurnRow[] }) {
+  const config = { costPerMsg: { label: "Cost per message", color: ACCENT } } satisfies ChartConfig;
+  return (
+    <ChartContainer config={config} className="aspect-auto h-[220px] w-full" role="img" aria-label="Average cost per message by position in the session">
+      <BarChart data={rows} margin={{ top: 20, right: 8, left: 8, bottom: 8 }}>
+        <XAxis dataKey="label" tickLine={false} axisLine={false} interval={0} height={40} tick={<TurnTick rows={rows} />} />
+        <YAxis hide />
         <ChartTooltip
-          content={
-            <ChartTooltipContent
-              labelFormatter={(l) => shortDay(String(l))}
-              formatter={(v) => usdExact(Number(v))}
-            />
-          }
+          content={<ChartTooltipContent hideLabel formatter={(v, _n, item) => `${usdExact(Number(v))} per message (${item.payload.shareLabel} of spend)`} />}
         />
-        <Area type="monotone" dataKey="cost" stroke="var(--color-cost)" strokeWidth={2} fill="url(#costFill)" isAnimationActive={false} />
+        <Bar dataKey="costPerMsg" radius={[4, 4, 0, 0]} isAnimationActive={false}>
+          {rows.map((r) => (
+            <Cell key={r.label} fill={r.late ? ACCENT : "hsl(var(--muted-foreground) / 0.45)"} />
+          ))}
+          <LabelList dataKey="costLabel" position="top" className="fill-foreground text-[11px]" />
+        </Bar>
+      </BarChart>
+    </ChartContainer>
+  );
+}
+
+// ---- cumulative spend vs plan price ----
+export function PlanValueChart({ plan }: { plan: PlanValue }) {
+  const config = {
+    cum: { label: "Spend so far", color: ACCENT },
+    projected: { label: "Projected", color: ACCENT },
+    plan: { label: "Plan price", color: "hsl(var(--muted-foreground))" },
+  } satisfies ChartConfig;
+  return (
+    <ChartContainer config={config} className="aspect-auto h-[220px] w-full" role="img" aria-label={`Cumulative API-equivalent spend this month against a $${plan.price} plan`}>
+      <ComposedChart data={plan.series} margin={{ top: 16, right: 12, left: -4, bottom: 0 }}>
+        <XAxis dataKey="day" tickFormatter={shortDay} tickLine={false} axisLine={false} tickMargin={8} minTickGap={32} className={GRID_TEXT} />
+        <YAxis tickFormatter={fmtUSDShort} tickLine={false} axisLine={false} width={52} className={GRID_TEXT} domain={[0, "auto"]} />
+        <ChartTooltip content={<ChartTooltipContent labelFormatter={(l) => shortDay(String(l))} formatter={(v) => usdExact(Number(v))} />} />
+        <Area type="monotone" dataKey="cum" stroke={ACCENT} strokeWidth={2} fill={ACCENT} fillOpacity={0.14} isAnimationActive={false} connectNulls={false} />
+        <Line type="linear" dataKey="projected" stroke={ACCENT} strokeWidth={2} strokeDasharray="4 4" dot={false} isAnimationActive={false} connectNulls={false} />
+        <Line type="linear" dataKey="plan" stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} strokeDasharray="2 3" dot={false} isAnimationActive={false} />
+        {plan.paidOffDay && plan.paidOffLabel && (
+          <ReferenceLine x={plan.paidOffDay} stroke="hsl(var(--muted-foreground))" label={{ value: plan.paidOffLabel, position: "insideTopLeft", className: "fill-muted-foreground text-[10px]" }} />
+        )}
+      </ComposedChart>
+    </ChartContainer>
+  );
+}
+
+// ---- daily cost stacked by model (+ optional 7-day average) ----
+export function DailyStackedCost({ rows, models, showAverage = false, label }: { rows: DailyByModelRow[]; models: DailyModelLegend[]; showAverage?: boolean; label: string }) {
+  const config: ChartConfig = Object.fromEntries(models.map((m) => [m.model, { label: m.label, color: m.color }]));
+  config.ma7 = { label: "7-day avg", color: "hsl(var(--foreground))" };
+  return (
+    <ChartContainer config={config} className="aspect-auto h-[240px] w-full" role="img" aria-label={label}>
+      <ComposedChart data={rows} margin={{ top: 8, right: 8, left: -4, bottom: 0 }}>
+        <XAxis dataKey="day" tickFormatter={shortDay} tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} className={GRID_TEXT} />
+        <YAxis tickFormatter={fmtUSDShort} tickLine={false} axisLine={false} width={52} className={GRID_TEXT} />
+        <ChartTooltip content={<ChartTooltipContent labelFormatter={(l) => shortDay(String(l))} formatter={(v) => usdExact(Number(v))} />} />
+        {models.map((m) => (
+          <Bar key={m.model} dataKey={m.model} stackId="cost" fill={m.color} isAnimationActive={false} />
+        ))}
+        {showAverage && <Line type="monotone" dataKey="ma7" stroke="hsl(var(--foreground))" strokeWidth={2} dot={false} isAnimationActive={false} />}
+      </ComposedChart>
+    </ChartContainer>
+  );
+}
+
+// ---- cost per message by effort ----
+export function EffortCostBars({ rows }: { rows: EffortCostRow[] }) {
+  const config = { costPerMsg: { label: "Cost per message", color: ACCENT } } satisfies ChartConfig;
+  return (
+    <ChartContainer config={config} className="aspect-auto h-[220px] w-full" role="img" aria-label="Cost per message by effort level">
+      <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 56, left: 0, bottom: 0 }}>
+        <XAxis type="number" hide />
+        <YAxis type="category" dataKey="label" tickLine={false} axisLine={false} width={64} className="text-[12px]" />
+        <ChartTooltip content={<ChartTooltipContent hideLabel formatter={(v) => `${usdExact(Number(v))} per message`} />} />
+        <Bar dataKey="costPerMsg" fill={ACCENT} radius={[0, 4, 4, 0]} isAnimationActive={false}>
+          <LabelList dataKey="costLabel" position="right" className="fill-foreground text-[11px]" />
+        </Bar>
+      </BarChart>
+    </ChartContainer>
+  );
+}
+
+// ---- Pareto: cumulative share of cost vs share of sessions ----
+export function ParetoCurve({ pareto }: { pareto: Pareto }) {
+  const config = { y: { label: "Share of cost", color: ACCENT } } satisfies ChartConfig;
+  const pct = (v: number) => `${v}%`;
+  return (
+    <ChartContainer config={config} className="aspect-auto h-[200px] w-full" role="img" aria-label={pareto.top10Label ? `The top 10% of sessions account for ${pareto.top10Label} of cost` : "Cumulative share of cost across sessions, costliest first"}>
+      <AreaChart data={pareto.points} margin={{ top: 8, right: 12, left: -4, bottom: 0 }}>
+        <XAxis type="number" dataKey="x" domain={[0, 100]} ticks={[0, 50, 100]} tickFormatter={pct} tickLine={false} axisLine={false} className={GRID_TEXT} />
+        <YAxis type="number" domain={[0, 100]} ticks={[0, 50, 100]} tickFormatter={pct} tickLine={false} axisLine={false} width={40} className={GRID_TEXT} />
+        <ChartTooltip content={<ChartTooltipContent hideLabel formatter={(v) => `${Number(v).toFixed(0)}% of cost`} />} />
+        <ReferenceLine segment={[{ x: 0, y: 0 }, { x: 100, y: 100 }]} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
+        <ReferenceLine x={pareto.markerX} stroke="hsl(var(--muted-foreground))" strokeDasharray="2 3" label={{ value: "top 10%", position: "insideTopRight", className: "fill-muted-foreground text-[10px]" }} />
+        <Area type="monotone" dataKey="y" stroke={ACCENT} strokeWidth={2} fill={ACCENT} fillOpacity={0.14} isAnimationActive={false} />
       </AreaChart>
     </ChartContainer>
   );
 }
 
-// Cost over time as one line per model, with checkbox toggles to show/hide each.
-export function CostByModel({ series, models }: { series: Summary["byDayModel"]; models: Summary["byModel"] }) {
-  const active = models.filter((m) => m.cost > 0);
-  const colorOf = (model: string) => PALETTE[active.findIndex((m) => m.model === model) % PALETTE.length];
-  const [hidden, setHidden] = useState<Set<string>>(new Set());
-
-  const config = Object.fromEntries(
-    active.map((m) => [m.model, { label: shortModel(m.model), color: colorOf(m.model) }]),
-  ) satisfies ChartConfig;
-
-  function toggle(model: string) {
-    setHidden((prev) => {
-      const next = new Set(prev);
-      if (next.has(model)) next.delete(model);
-      else next.add(model);
-      return next;
-    });
-  }
-
-  const visible = active.filter((m) => !hidden.has(m.model));
-
+// ---- Scatter: session length vs cost (log-log), ringed outliers ----
+function ScatterDot({ cx, cy, payload, fill }: { cx?: number; cy?: number; payload?: ScatterPoint; fill?: string }) {
+  if (cx === undefined || cy === undefined) return <g />;
   return (
-    <div>
-      <ChartContainer config={config} className="aspect-auto h-[260px] w-full">
-        <LineChart data={series} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-          <XAxis
-            dataKey="day"
-            tickFormatter={shortDay}
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            minTickGap={24}
-            className="text-[11px]"
-          />
-          <YAxis tickFormatter={(v) => `$${v}`} tickLine={false} axisLine={false} width={48} className="text-[11px]" />
-          <ChartTooltip
-            content={<ChartTooltipContent labelFormatter={(l) => shortDay(String(l))} formatter={(v) => usdExact(Number(v))} />}
-          />
-          {visible.map((m) => (
-            <Line
-              key={m.model}
-              type="monotone"
-              dataKey={m.model}
-              stroke={colorOf(m.model)}
-              strokeWidth={2}
-              dot={false}
-              isAnimationActive={false}
-            />
-          ))}
-        </LineChart>
-      </ChartContainer>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        {active.map((m) => {
-          const on = !hidden.has(m.model);
-          const color = colorOf(m.model);
-          return (
-            <button
-              key={m.model}
-              type="button"
-              onClick={() => toggle(m.model)}
-              aria-pressed={on}
-              className={`flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-accent ${
-                on ? "" : "opacity-45"
-              }`}
-            >
-              <span
-                className="grid h-3.5 w-3.5 place-items-center rounded-[4px] border text-[9px] font-bold leading-none text-background"
-                style={{ borderColor: color, background: on ? color : "transparent" }}
-              >
-                {on ? "✓" : ""}
-              </span>
-              <span className="inline-block h-[3px] w-3.5 rounded-full" style={{ background: color }} />
-              <span>{shortModel(m.model)}</span>
-              <span className="tabular-nums text-muted-foreground">{usd(m.cost)}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
+    <g>
+      <circle cx={cx} cy={cy} r={3.5} fill={fill} fillOpacity={0.75} />
+      {payload?.outlier && <circle cx={cx} cy={cy} r={7} fill="none" stroke={fill} strokeWidth={1.5} />}
+    </g>
   );
 }
 
-export function ModelSplit({ data }: { data: Summary["byModel"] }) {
-  const rows = data.filter((d) => d.cost > 0);
+export function SessionScatter({ scatter }: { scatter: ScatterModel }) {
+  const config: ChartConfig = Object.fromEntries(scatter.series.map((s) => [s.model, { label: s.label, color: s.color }]));
   return (
-    <ChartContainer config={{}} className="mx-auto aspect-auto h-[240px] w-full">
-      <PieChart>
-        <Pie data={rows} dataKey="cost" nameKey="model" innerRadius={55} outerRadius={90} paddingAngle={2} strokeWidth={0} isAnimationActive={false}>
-          {rows.map((_, i) => (
-            <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-          ))}
-        </Pie>
-        <ChartTooltip content={<ChartTooltipContent nameKey="model" formatter={(v) => usdExact(Number(v))} />} />
-      </PieChart>
-    </ChartContainer>
-  );
-}
-
-export function ProjectBars({ data }: { data: Summary["byProject"] }) {
-  const rows = data.slice(0, 10);
-  const config = { cost: { label: "Cost", color: "hsl(var(--chart-1))" } } satisfies ChartConfig;
-  return (
-    <ChartContainer config={config} style={{ height: Math.max(200, rows.length * 34) }} className="aspect-auto w-full">
-      <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
-        <XAxis type="number" tickFormatter={(v) => `$${v}`} tickLine={false} axisLine={false} className="text-[11px]" />
-        <YAxis
-          type="category"
-          dataKey="project"
-          width={150}
-          interval={0}
-          tickFormatter={(v: string) => (v.length > 20 ? v.slice(0, 19) + "…" : v)}
-          tickLine={false}
-          axisLine={false}
-          className="text-[12px]"
-        />
-        <ChartTooltip content={<ChartTooltipContent formatter={(v) => usdExact(Number(v))} hideLabel />} />
-        <Bar dataKey="cost" radius={[0, 4, 4, 0]} isAnimationActive={false}>
-          {rows.map((_, i) => (
-            <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ChartContainer>
-  );
-}
-
-// Output tokens produced per $ of API-equivalent cost, by project — higher = more
-// "bang per token". Sorted best-first so the most efficient projects sit on top.
-export function EfficiencyBars({ data }: { data: Summary["byProject"] }) {
-  const rows = data
-    .filter((p) => p.cost > 0)
-    .map((p) => ({ project: p.project, value: Math.round(p.output / p.cost) }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 12);
-  const config = { value: { label: "Output / $", color: "hsl(var(--chart-2))" } } satisfies ChartConfig;
-  return (
-    <ChartContainer config={config} style={{ height: Math.max(200, rows.length * 34) }} className="aspect-auto w-full">
-      <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
-        <XAxis type="number" tickFormatter={(v) => tokens(v)} tickLine={false} axisLine={false} className="text-[11px]" />
-        <YAxis
-          type="category"
-          dataKey="project"
-          width={150}
-          interval={0}
-          tickFormatter={(v: string) => (v.length > 20 ? v.slice(0, 19) + "…" : v)}
-          tickLine={false}
-          axisLine={false}
-          className="text-[12px]"
-        />
+    <ChartContainer config={config} className="aspect-auto h-[260px] w-full" role="img" aria-label="Session length in messages against session cost, both on log scales">
+      <ScatterChart margin={{ top: 8, right: 12, left: -4, bottom: 0 }}>
+        <XAxis type="number" dataKey="messages" name="Messages" scale="log" domain={scatter.x.domain} ticks={scatter.x.ticks} allowDataOverflow tickFormatter={(v) => num(Number(v))} tickLine={false} axisLine={false} className={GRID_TEXT} />
+        <YAxis type="number" dataKey="cost" name="Cost" scale="log" domain={scatter.y.domain} ticks={scatter.y.ticks} allowDataOverflow tickFormatter={(v) => fmtUSDShort(Number(v))} tickLine={false} axisLine={false} width={56} className={GRID_TEXT} />
         <ChartTooltip
-          content={<ChartTooltipContent formatter={(v) => `${tokens(Number(v))} tok / $`} hideLabel />}
-        />
-        <Bar dataKey="value" fill="var(--color-value)" radius={[0, 4, 4, 0]} isAnimationActive={false} />
-      </BarChart>
-    </ChartContainer>
-  );
-}
-
-export function HourBars({ data }: { data: Summary["byHour"] }) {
-  const config = { cost: { label: "Cost", color: "hsl(var(--chart-1))" } } satisfies ChartConfig;
-  return (
-    <ChartContainer config={config} className="aspect-auto h-[200px] w-full">
-      <BarChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-        <XAxis
-          dataKey="hour"
-          tickFormatter={(h: number) => (h % 6 === 0 ? `${h}:00` : "")}
-          tickLine={false}
-          axisLine={false}
-          interval={0}
-          className="text-[11px]"
-        />
-        <YAxis tickFormatter={(v) => `$${v}`} tickLine={false} axisLine={false} width={44} className="text-[11px]" />
-        <ChartTooltip
-          content={
-            <ChartTooltipContent
-              labelFormatter={(l) => `${l}:00–${Number(l) + 1}:00`}
-              formatter={(v) => usdExact(Number(v))}
-            />
+          cursor={false}
+          content={({ active, payload }) =>
+            active && payload?.length ? (
+              <div className="rounded-md border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-md">{(payload[0].payload as ScatterPoint).tip}</div>
+            ) : null
           }
         />
-        <Bar dataKey="cost" fill="var(--color-cost)" radius={[3, 3, 0, 0]} isAnimationActive={false} />
-      </BarChart>
-    </ChartContainer>
-  );
-}
-
-export function TokenBars({ totals }: { totals: Summary["totals"] }) {
-  const data = [
-    { name: "Input", value: totals.input },
-    { name: "Output", value: totals.output },
-    { name: "Cache write", value: totals.cacheCreate },
-    { name: "Cache read", value: totals.cacheRead },
-  ];
-  return (
-    <ChartContainer config={{ value: { label: "Tokens" } }} className="aspect-auto h-[240px] w-full">
-      <BarChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-        <XAxis dataKey="name" tickLine={false} axisLine={false} className="text-[11px]" />
-        <YAxis tickFormatter={(v) => tokens(v)} tickLine={false} axisLine={false} width={44} className="text-[11px]" />
-        <ChartTooltip content={<ChartTooltipContent formatter={(v) => `${tokens(Number(v))} tokens`} hideLabel />} />
-        <Bar dataKey="value" radius={[4, 4, 0, 0]} isAnimationActive={false}>
-          {data.map((_, i) => (
-            <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-          ))}
-        </Bar>
-      </BarChart>
+        {scatter.series.map((s) => (
+          <Scatter key={s.model} name={s.label} data={s.points} fill={s.color} shape={<ScatterDot />} isAnimationActive={false} />
+        ))}
+      </ScatterChart>
     </ChartContainer>
   );
 }

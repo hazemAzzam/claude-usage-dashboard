@@ -1,31 +1,32 @@
 "use client";
 
-import type { DayBucket, ModelBucket, Summary } from "@/lib/usage";
-import { cacheShare, num, shortDay, tokens, usdExact } from "@/lib/format";
+import type { Summary } from "@/lib/usage";
+import { num, tokens, usdExact } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableRow, TableHeader } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Empty, MiniStat, shortModel, SortHeader } from "@/components/stats";
-import { useDailyView, tokensPerDollar } from "@/hooks/use-daily-view";
+import { Table, TableBody, TableCell, TableRow, TableHeader, TableHead } from "@/components/ui/table";
+import { Empty, MiniStat, SortHeader } from "@/components/stats";
+import { ModelLegend } from "@/components/charts";
+import { useDailyView, type DailyRow } from "@/hooks/use-daily-view";
 
 export function DailyView({ data }: { data: Summary }) {
-  const { rows, sortKey, dir, toggleSort, isRowOpen, toggleRow, days, avgCostPerDay, busiest, avgMessages } =
-    useDailyView(data);
+  const { rows, stats, models, days, sortKey, dir, toggleSort, isRowOpen, toggleRow } = useDailyView(data);
 
   if (!days) return <Empty />;
 
   return (
     <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">One row per day. Click a day for its per-model split.</p>
+
       <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <MiniStat label="Active days" value={num(days)} />
-        <MiniStat label="Avg cost / day" value={usdExact(avgCostPerDay)} />
-        <MiniStat label="Busiest day" value={busiest ? usdExact(busiest.cost) : "—"} hint={busiest && shortDay(busiest.day)} />
-        <MiniStat label="Avg msgs / day" value={num(avgMessages)} />
+        {stats.map((s) => (
+          <MiniStat key={s.label} label={s.label} value={s.value} hint={s.sub} />
+        ))}
       </section>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="gap-2">
           <CardTitle className="text-sm font-medium">Daily breakdown</CardTitle>
+          <ModelLegend items={models} />
         </CardHeader>
         <CardContent>
           <div className="max-h-[640px] overflow-auto rounded-md border">
@@ -33,6 +34,7 @@ export function DailyView({ data }: { data: Summary }) {
               <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
                   <SortHeader label="Date" active={sortKey === "day"} dir={dir} onClick={() => toggleSort("day")} />
+                  <TableHead className="min-w-[140px]">Share of range</TableHead>
                   <SortHeader label="Msgs" active={sortKey === "messages"} dir={dir} onClick={() => toggleSort("messages")} alignRight />
                   <SortHeader label="Input" active={sortKey === "input"} dir={dir} onClick={() => toggleSort("input")} alignRight />
                   <SortHeader label="Output" active={sortKey === "output"} dir={dir} onClick={() => toggleSort("output")} alignRight />
@@ -43,8 +45,8 @@ export function DailyView({ data }: { data: Summary }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((d) => (
-                  <DayRow key={d.day} d={d} open={isRowOpen(d.day)} onToggle={() => toggleRow(d.day)} />
+                {rows.map((r) => (
+                  <DayRow key={r.d.day} r={r} open={isRowOpen(r.d.day)} onToggle={() => toggleRow(r.d.day)} />
                 ))}
               </TableBody>
             </Table>
@@ -55,15 +57,12 @@ export function DailyView({ data }: { data: Summary }) {
   );
 }
 
-function DayRow({ d, open, onToggle }: { d: DayBucket; open: boolean; onToggle: () => void }) {
-  const models: ModelBucket[] = d.models ?? [];
-  const expandable = models.length > 1;
+function DayRow({ r, open, onToggle }: { r: DailyRow; open: boolean; onToggle: () => void }) {
+  const { d } = r;
+  const expandable = r.parts.length > 1;
   return (
     <>
-      <TableRow
-        className={expandable ? "cursor-pointer" : undefined}
-        onClick={expandable ? onToggle : undefined}
-      >
+      <TableRow className={expandable ? "cursor-pointer" : undefined} onClick={expandable ? onToggle : undefined}>
         <TableCell className="whitespace-nowrap font-medium">
           <span className="inline-flex items-center gap-1.5">
             {expandable ? (
@@ -82,37 +81,45 @@ function DayRow({ d, open, onToggle }: { d: DayBucket; open: boolean; onToggle: 
             ) : (
               <span className="inline-block w-3" />
             )}
-            {shortDay(d.day)}
+            {r.dateLabel}
+            <span className="text-[11px] font-normal text-muted-foreground">{r.dow}</span>
           </span>
+        </TableCell>
+        <TableCell>
+          <div className="flex h-2 overflow-hidden rounded-[2px]" style={{ width: `${r.barWidthPct}%` }} role="img" aria-label={`${r.dateLabel}: ${usdExact(d.cost)}`}>
+            {r.parts.map((p) => (
+              <span key={p.model} title={`${p.label} ${p.costLabel}`} className="h-2" style={{ width: `${p.pctOfDay}%`, background: p.color }} />
+            ))}
+          </div>
         </TableCell>
         <TableCell className="text-right tabular-nums text-muted-foreground">{num(d.messages)}</TableCell>
         <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(d.input)}</TableCell>
         <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(d.output)}</TableCell>
         <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(d.cacheCreate)}</TableCell>
         <TableCell className="text-right tabular-nums text-muted-foreground">
-          {tokens(d.cacheRead)} <span className="text-[11px] opacity-60">{cacheShare(d).toFixed(0)}%</span>
+          {tokens(d.cacheRead)} <span className="text-[11px] opacity-60">{r.cacheShareLabel}</span>
         </TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">{num(Math.round(tokensPerDollar(d)))}</TableCell>
+        <TableCell className="text-right tabular-nums text-muted-foreground">{r.tokensPerDollarLabel}</TableCell>
         <TableCell className="text-right font-medium tabular-nums">{usdExact(d.cost)}</TableCell>
       </TableRow>
       {open &&
         expandable &&
-        models.map((m) => (
-          <TableRow key={m.model} className="bg-muted/30 hover:bg-muted/30 text-xs">
+        r.parts.map((p) => (
+          <TableRow key={p.model} className="bg-muted/30 text-xs hover:bg-muted/30">
             <TableCell className="pl-8">
-              <Badge variant="outline" className="font-normal text-muted-foreground">
-                {shortModel(m.model)}
-              </Badge>
+              <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: p.color }} aria-hidden />
+                {p.label}
+              </span>
             </TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">{num(m.messages)}</TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(m.input)}</TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(m.output)}</TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">{tokens(m.cacheCreate)}</TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">
-              {tokens(m.cacheRead)} <span className="text-[11px] opacity-60">{cacheShare(m).toFixed(0)}%</span>
+            <TableCell>
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full" style={{ width: `${p.pctOfDay}%`, background: p.color }} />
+              </div>
             </TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">{num(Math.round(tokensPerDollar(m)))}</TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">{usdExact(m.cost)}</TableCell>
+            <TableCell className="text-right tabular-nums text-muted-foreground">{num(p.messages)} msgs</TableCell>
+            <TableCell colSpan={4} />
+            <TableCell className="text-right tabular-nums text-muted-foreground">{p.costLabel}</TableCell>
           </TableRow>
         ))}
     </>

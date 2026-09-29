@@ -93,6 +93,7 @@ describe("summarize: previous window", () => {
     expect(prev.totals.cost).toBeCloseTo(sum(records.slice(1, 4).map((r) => r.cost)));
     expect(prev.byDay.map((d) => d.day)).toEqual(["2026-01-07", "2026-01-08", "2026-01-09"]);
     expect(prev.to).toBe(s.from - 1);
+    expect(prev.partial).toBe(false);
     expect(s.totals.messages).toBe(2);
   });
 
@@ -115,9 +116,10 @@ describe("summarize: planMonth", () => {
     rec(2026, 1, 20, "B", { effort: "high" }),
     rec(2026, 2, 1, "C"), // other month
   ]);
+  const NOW = at(2026, 1, 25); // "today" is in January
 
-  it("covers the calendar month of `to`, ignoring the selected range", () => {
-    const s = summarize(records, win(10, 12), META); // range has no records at all
+  it("covers the calendar month of `now`, ignoring the selected range", () => {
+    const s = summarize(records, win(10, 12), META, { now: NOW }); // range has no records at all
     expect(s.planMonth.month).toBe("2026-01");
     expect(s.planMonth.daysInMonth).toBe(31);
     expect(s.planMonth.byDay).toHaveLength(31);
@@ -126,10 +128,41 @@ describe("summarize: planMonth", () => {
     expect(s.totals.cost).toBe(0);
   });
 
-  it("honours the effort filter", () => {
-    const s = summarize(records, win(10, 12), META, { effort: "high" });
-    expect(sum(s.planMonth.byDay.map((d) => d.cost))).toBeCloseTo(records[2].cost + records[3].cost);
-    expect(s.planMonth.byDay[1].cost).toBe(0); // the "low" Jan 2 record
+  it("follows `now`, not the range end", () => {
+    const s = summarize(records, win(10, 12), META, { now: at(2026, 2, 3) });
+    expect(s.planMonth.month).toBe("2026-02");
+    expect(sum(s.planMonth.byDay.map((d) => d.cost))).toBeCloseTo(records[4].cost);
+  });
+
+  it("ignores the effort filter (all efforts)", () => {
+    const s = summarize(records, win(10, 12), META, { effort: "high", now: NOW });
+    expect(sum(s.planMonth.byDay.map((d) => d.cost))).toBeCloseTo(sum(records.slice(1, 4).map((r) => r.cost)));
+    expect(s.planMonth.byDay[1].cost).toBeGreaterThan(0); // the "low" Jan 2 record counts
+  });
+});
+
+describe("summarize: partial current window", () => {
+  // 10-day window Jan 11-20 with "now" at noon on Jan 15 (4.5 days in).
+  const NOW = at(2026, 1, 15, 12);
+  const records = sortTs([
+    rec(2026, 1, 1, "P", { h: 6 }), // prev day 1 (Jan 1-10), inside trimmed span
+    rec(2026, 1, 5, "P", { h: 18 }), // prev day 5, after the same elapsed point -> trimmed away
+    rec(2026, 1, 9, "P"), // trimmed away
+    rec(2026, 1, 12, "C"),
+  ]);
+
+  it("trims the previous window to the same elapsed length and flags it", () => {
+    const s = summarize(records, win(11, 20), META, { now: NOW });
+    expect(s.previous!.partial).toBe(true);
+    // elapsed = 4.5 days -> prev covers Jan 1 00:00 .. Jan 5 12:00
+    expect(s.previous!.totals.messages).toBe(1);
+    expect(s.previous!.to).toBe(new Date(2026, 0, 1).getTime() + (NOW - s.from));
+  });
+
+  it("uses the full previous window once the range has ended", () => {
+    const s = summarize(records, win(11, 20), META, { now: at(2026, 2, 1) });
+    expect(s.previous!.partial).toBe(false);
+    expect(s.previous!.totals.messages).toBe(3);
   });
 });
 
@@ -237,5 +270,21 @@ describe("summarize: subagent (sidechain) messages", () => {
     const s = summarize(records, win(10, 10), META);
     // main: 1-25 -> 25 msgs, 26-50 -> 5; agent-1: positions 1..20 -> 20 msgs in the first bucket
     expect(s.turnBuckets.map((b) => b.messages)).toEqual([45, 5, 0, 0, 0, 0]);
+  });
+});
+
+describe("summarize: per-project day x model split", () => {
+  it("fills project.byDay[].models, cost desc, matching the day total", () => {
+    const records = sortTs([
+      rec(2026, 1, 10, "A", { cost: 1, min: 0 }),
+      rec(2026, 1, 10, "A", { cost: 5, model: "claude-opus-4-8", min: 1 }),
+      rec(2026, 1, 10, "B", { cost: 2, project: "other", min: 2 }),
+    ]);
+    const s = summarize(records, win(10, 10), META);
+    const p = s.byProject.find((x) => x.project === "proj")!;
+    expect(p.byDay).toHaveLength(1);
+    const models = p.byDay[0].models!;
+    expect(models.map((m) => m.model)).toEqual(["claude-opus-4-8", MODEL]);
+    expect(sum(models.map((m) => m.cost))).toBeCloseTo(p.byDay[0].cost);
   });
 });

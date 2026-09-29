@@ -56,3 +56,45 @@ export function linearProjection(cumByDay: number[], daysElapsed: number, daysIn
   const total = cumByDay[Math.min(Math.floor(daysElapsed), cumByDay.length) - 1];
   return (total / Math.floor(daysElapsed)) * daysInMonth;
 }
+
+/** Index/value points for chart libraries that want row objects. */
+export function toSeries(xs: number[]): Array<{ i: number; v: number }> {
+  return xs.map((v, i) => ({ i, v }));
+}
+
+/** part / count, 0 when count is 0 (an average). */
+export function safeDiv(part: number, count: number): number {
+  return count === 0 ? 0 : part / count;
+}
+
+/** Sum of a list. */
+export function sum(xs: number[]): number {
+  let s = 0;
+  for (const x of xs) s += x;
+  return s;
+}
+
+/**
+ * Densify a per-day series: one row for EVERY local calendar day from
+ * `fromKey` to `toKey` (inclusive, YYYY-MM-DD), taking existing rows as-is and
+ * `make(day)` for gaps. Walks days with `new Date(y, m, d + 1)` so a DST
+ * change can't skip or repeat a day. Rows outside the span are dropped.
+ * Needed so moving averages and sparklines count idle days as $0.
+ */
+export function fillDays<T extends { day: string }>(
+  rows: T[],
+  fromKey: string,
+  toKey: string,
+  make: (day: string) => T,
+): T[] {
+  const byDay = new Map(rows.map((r) => [r.day, r]));
+  const out: T[] = [];
+  const [y, m, d] = fromKey.split("-").map(Number);
+  for (let i = 0; i < 20_000; i++) {
+    const dt = new Date(y, m - 1, d + i);
+    const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+    if (key > toKey) break;
+    out.push(byDay.get(key) ?? make(key));
+  }
+  return out;
+}

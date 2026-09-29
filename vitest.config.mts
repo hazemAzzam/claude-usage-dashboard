@@ -19,5 +19,5 @@ export default defineConfig({
       "server-only": fileURLToPath(new URL("./test/empty-module.ts", import.meta.url)),
     },
   },
-  test: { include: ["lib/**/*.test.ts"] },
+  test: { include: ["lib/**/*.test.ts", "hooks/**/*.test.ts"] },
 });

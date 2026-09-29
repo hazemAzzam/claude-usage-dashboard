@@ -134,12 +134,19 @@ function turnBucketIndex(pos: number): number {
 }
 export type TurnBucket = { label: string; lo: number; hi: number | null } & Bucket;
 
+// Slim per-model cost used by the project day chart (no token counts needed).
+export type DayModelCost = { model: string; cost: number };
+
 export type DaySession = { session: string; project: string; cost: number; messages: number };
 
 // Totals for the equal-length window immediately before the selected one.
 export interface PeriodTotals {
   from: number;
   to: number;
+  // true when the selected window ends in the future: the previous window was
+  // trimmed to the same elapsed length so a partial period isn't compared with
+  // a complete one.
+  partial: boolean;
   totals: Bucket & { sessions: number };
   cacheNetSaved: number;
   byDay: Array<{ day: string; cost: number }>;
@@ -162,8 +169,8 @@ export type EffortBucket = { effort: Effort } & Bucket;
 // the "Efficiency by model" table's expandable rows.
 export type ModelBucket = { model: string; efforts?: EffortBucket[] } & Bucket;
 // `models` is the per-model split of this day (cost desc); present on the
-// top-level `byDay` (drives the daily table's expandable rows), omitted on the
-// per-project `byDay` where it isn't needed.
+// top-level `byDay` (drives the daily table's expandable rows). Each project's
+// `byDay` carries a slimmer `models: {model, cost}[]` instead (see ProjectRow).
 // The optional extras are only set on the top-level `byDay`: `hours` is cost
 // per LOCAL hour 0..23 (same convention as byHour/heatmap), `topSessions` the
 // day's 5 costliest sessions.
@@ -204,7 +211,7 @@ export type ProjectRow = {
   project: string;
   sessions: number;
   models: ModelBucket[];
-  byDay: DayBucket[];
+  byDay: Array<{ day: string; models: DayModelCost[] } & Bucket>;
 } & Bucket;
 
 export interface Summary {
@@ -232,7 +239,8 @@ export interface Summary {
   turnBuckets: TurnBucket[]; // in-range cost by message position within its session
   tokenCost: TokenCost; // in-range cost split by token type
   previous: PeriodTotals | null; // prior equal-length window; null for unbounded ("all") ranges
-  // Calendar month containing `to` (effort-filtered, NOT range-filtered).
+  // The CURRENT calendar month (containing generatedAt), ALL efforts, NOT
+  // range- or effort-filtered: the plan-value card is always "this month".
   // byDay is dense: one cost per day 1..daysInMonth (0 where no usage).
   planMonth: { month: string; daysInMonth: number; byDay: Array<{ day: string; cost: number }> };
 }
@@ -245,9 +253,9 @@ export function summarize(
   records: UsageRecord[],
   sel: Range | DateWindow,
   meta: { builtAt: number; parseMs: number; cache: CacheState },
-  opts?: { effort?: Effort | null },
+  opts?: { effort?: Effort | null; now?: number },
 ): Summary {
-  const now = Date.now();
+  const now = opts?.now ?? Date.now();
   const { from, to } =
     typeof sel === "object" ? sel : { from: cutoff(sel, now), to: now };
   const effortFilter = opts?.effort ?? null;
@@ -293,10 +301,15 @@ export function summarize(
   const prevSessions = new Set<string>();
   const prevByDay = new Map<string, number>();
 
-  // Plan month: calendar month containing `to` (local time, like r.day).
-  const toDate = new Date(to);
-  const pmYear = toDate.getFullYear();
-  const pmMonth = toDate.getMonth();
+  // Trim the previous window when the selection runs into the future.
+  const partial = hasPrev && to > now;
+  const prevEnd = partial ? prevFrom + Math.max(0, now - from) + 1 : from; // exclusive
+
+  // Plan month: the CURRENT calendar month (containing `now`, local time like
+  // r.day), all efforts, independent of the selected range.
+  const nowDate = new Date(now);
+  const pmYear = nowDate.getFullYear();
+  const pmMonth = nowDate.getMonth();
   const monthKey = `${pmYear}-${String(pmMonth + 1).padStart(2, "0")}`;
   const daysInMonth = new Date(pmYear, pmMonth + 1, 0).getDate();
   const planDays = Array<number>(daysInMonth).fill(0);
@@ -307,7 +320,13 @@ export function summarize(
   >();
   const projects = new Map<
     string,
-    { bucket: Bucket; sessions: Set<string>; models: Map<string, Bucket>; byDay: Map<string, Bucket> }
+    {
+      bucket: Bucket;
+      sessions: Set<string>;
+      models: Map<string, Bucket>;
+      byDay: Map<string, Bucket>;
+      dayModels: Map<string, Map<string, number>>; // day -> model -> cost (project detail chart)
+    }
   >();
 
   for (const r of records) {
@@ -316,7 +335,7 @@ export function summarize(
     sessionPos.set(posKey, pos);
     const effortOk = !effortFilter || r.effort === effortFilter;
     const inRange = r.ts >= from && r.ts <= to;
-    const inPrev = hasPrev && r.ts >= prevFrom && r.ts < from;
+    const inPrev = hasPrev && r.ts >= prevFrom && r.ts < prevEnd;
     const px = effortOk && (inRange || inPrev) ? priced(r) : NO_PRICE;
 
     if (effortOk) {
@@ -326,8 +345,8 @@ export function summarize(
         prevSessions.add(r.session);
         prevByDay.set(r.day, (prevByDay.get(r.day) ?? 0) + r.cost);
       }
-      if (r.day.startsWith(monthKey)) planDays[Number(r.day.slice(8, 10)) - 1] += r.cost;
     }
+    if (r.day.startsWith(monthKey)) planDays[Number(r.day.slice(8, 10)) - 1] += r.cost;
 
     if (!inRange) continue;
 
@@ -401,7 +420,7 @@ export function summarize(
     add(sm, r, px);
 
     let p = projects.get(r.project);
-    if (!p) projects.set(r.project, (p = { bucket: empty(), sessions: new Set(), models: new Map(), byDay: new Map() }));
+    if (!p) projects.set(r.project, (p = { bucket: empty(), sessions: new Set(), models: new Map(), byDay: new Map(), dayModels: new Map() }));
     add(p.bucket, r, px);
     p.sessions.add(r.session);
     let pm = p.models.get(r.model);
@@ -410,6 +429,9 @@ export function summarize(
     let pd = p.byDay.get(r.day);
     if (!pd) p.byDay.set(r.day, (pd = empty()));
     add(pd, r, px);
+    let pdm = p.dayModels.get(r.day);
+    if (!pdm) p.dayModels.set(r.day, (pdm = new Map()));
+    pdm.set(r.model, (pdm.get(r.model) ?? 0) + r.cost);
   }
 
   totals.sessions = sessions.size;
@@ -446,7 +468,15 @@ export function summarize(
       sessions: p.sessions.size,
       ...p.bucket,
       models: [...p.models.entries()].map(([model, b]) => ({ model, ...b })).sort((a, b) => b.cost - a.cost),
-      byDay: [...p.byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([day, b]) => ({ day, ...b })),
+      byDay: [...p.byDay.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([day, b]) => ({
+          day,
+          ...b,
+          models: [...(p.dayModels.get(day)?.entries() ?? [])]
+            .map(([model, cost]) => ({ model, cost }))
+            .sort((x, y) => y.cost - x.cost),
+        })),
     }))
     .sort((a, b) => b.cost - a.cost);
 
@@ -521,7 +551,8 @@ export function summarize(
     previous: hasPrev
       ? {
           from: prevFrom,
-          to: from - 1,
+          to: prevEnd - 1,
+          partial,
           totals: prevTotals,
           cacheNetSaved: prevNetSaved,
           byDay: [...prevByDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([day, cost]) => ({ day, cost })),

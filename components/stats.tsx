@@ -2,28 +2,46 @@ import * as React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-// "claude-opus-4-8-20250101" -> "opus-4-8"
-export function shortModel(m: string): string {
-  return m.replace(/^claude-/, "").replace(/-\d{8}$/, "");
-}
+export { shortModel } from "@/lib/format";
 
+const DELTA_TONE = {
+  good: "bg-emerald-500/15 text-emerald-400",
+  warn: "bg-amber-500/15 text-amber-400",
+  neutral: "bg-muted text-muted-foreground",
+} as const;
+
+// KPI card. `delta` is the change vs the previous period, already formatted
+// (the arrow is part of the text so direction survives without colour);
+// `spark` is a slot for a Sparkline so this file stays chart-free.
 export function Kpi({
   label,
   value,
   sub,
-  hint,
+  delta,
+  spark,
 }: {
   label: string;
   value: string;
   sub?: string;
-  hint?: number;
+  delta?: { label: string; tone: keyof typeof DELTA_TONE };
+  spark?: React.ReactNode;
 }) {
-  const tone = hint === undefined ? "" : hint >= 60 ? "text-emerald-400" : hint >= 30 ? "text-amber-400" : "";
   return (
     <Card>
       <CardContent className="pt-5">
-        <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-        <div className={`mt-1.5 text-2xl font-semibold ${tone}`}>{value}</div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
+          {delta && (
+            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums ${DELTA_TONE[delta.tone]}`}>
+              <span className="sr-only">Change vs previous period: </span>
+              {delta.label}
+            </span>
+          )}
+        </div>
+        <div className="mt-1.5 flex items-end justify-between gap-2">
+          <span className="text-2xl font-semibold tabular-nums">{value}</span>
+          {spark}
+        </div>
         {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
       </CardContent>
     </Card>

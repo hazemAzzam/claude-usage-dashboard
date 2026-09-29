@@ -12,8 +12,13 @@ updated via a persistent cache (in-memory hot copy TTL 5s; see "Parse cache").
   — no `node:*` imports, safe to import from client components. `lib/effort.ts`
   owns the `Effort` type/order/labels; `lib/pricing.ts` owns per-model $/1M rates.
 - **`lib/stats.ts`** — client-safe pure numeric helpers (`pctDelta`,
-  `movingAverage`, `cumulative`, `median`, `shareOf`, `linearProjection`);
-  views/hooks use these rather than inline arithmetic.
+  `movingAverage`, `cumulative`, `median`, `shareOf`, `linearProjection`,
+  `fillDays`, ...); views/hooks use these rather than inline arithmetic.
+- **`lib/derive.ts`** — client-safe pure derivations shared by more than one
+  view hook or by chart prop types: `deriveEffortCostPerMsg`, `daySpan` (the
+  day range every per-day series is densified over), `zeroDay`,
+  `shortSessionId`, and the `DailyByModelRow` / `DailyModelLegend` /
+  `EffortCostRow` types. Type-only imports from `lib/usage.ts`.
 - **`lib/usage-cache.ts`** is server-only and owns transcript I/O: walking
   `~/.claude/projects/**/*.jsonl`, the persistent per-file parse cache (see
   "Parse cache" below), and merging cached lines into `UsageRecord[]`.
@@ -126,21 +131,64 @@ filters live in memory only.
 - **`hooks/use-sortable.ts`** / **`hooks/use-expandable.ts`** — generic sort
   key/dir/toggle and open-row-id-set toggle, replacing logic that used to be
   duplicated across the Sessions/Daily/Efficiency views.
+- **`hooks/use-overview-view.ts`** — the Overview's derivations, each an
+  exported pure function (unit-tested in `hooks/__tests__/`) that
+  `useOverviewView(summary, planPrice)` memoises: `deriveKpis` (value, delta vs
+  `Summary.previous`, tone, per-day spark), `deriveTurnCost` (cost/message per
+  `turnBuckets` bucket + the turns-151+ multiple/share and callout string),
+  `derivePlanValue` (cumulative month line, plan reference, paid-off day,
+  `linearProjection` to month end, hidden until 3 days have elapsed; "today" is `Summary.generatedAt`, not a
+  render-time clock), `deriveDailyByModel` (+7-day moving average) and
+  `deriveEffortCostPerMsg` (also feeds the Efficiency KPIs/note). Delta colour
+  semantics live in `deltaTone` (cost up = warn, savings up = good); the arrow
+  is part of the label text so direction never depends on colour alone.
+- **`hooks/use-plan-price.ts`** — `usePlanPrice()` over `localStorage["plan-price"]`
+  (20|100|200, default 200) via `useSyncExternalStore`; the server/hydration
+  snapshot is the default, so there is no hydration mismatch.
 - **`hooks/use-sessions-view.ts`** — search/filter/sort view model for the
-  Sessions table. Search text runs through **`useDeferredValue`** so typing
-  stays responsive while a large `allSessions` list re-filters.
+  Sessions table (search matches project or session id) plus `derivePareto`
+  (cumulative cost-share curve, top-10%/20% shares) and `deriveScatter`
+  (messages vs cost per session; outlier = cost > 2x the median cost of its
+  `floor(log2(messages))` bin). Both charts describe the whole range and ignore
+  the table's search/model filters. Search text runs through
+  **`useDeferredValue`** so typing stays responsive while a large
+  `allSessions` list re-filters.
 - **`hooks/use-daily-view.ts`** — sort + expand view model for the Daily
-  table, plus the `cacheShare`/`tokensPerDollar` calculation helpers.
-- **`hooks/use-efficiency-view.ts`** — per-project/per-model efficiency
-  metrics (`outputShare`, `cacheShare`, `outputPerDollar`) plus sort + expand
-  view model.
-- **`hooks/use-projects-view.ts`** — selected-project state and the derived
-  "latest 15 sessions for that project" list for the Projects master/detail
-  layout.
+  table; `deriveDailyRows` (share-of-range bar width, per-model parts, cache
+  share, tokens/$) and `deriveDailyStats`. `tokensPerDollar` counts *all* token
+  types (cache reads dominate, which is the point).
+- **`hooks/use-efficiency-view.ts`** — `deriveEfficiencyKpis`,
+  `deriveModelRows` (per-model/per-effort metrics for the expandable table),
+  `effortModelGrid` (cost/message matrix, models as columns, with intensity for
+  shading) and `effortGridNote` (the generated takeaway).
+- **`hooks/use-patterns-view.ts`** — `heatmapMarginals` (weekday/hour totals,
+  peaks), `derivePatternStats` and `deriveHeatmapModel` (Monday-first rows with
+  cell alpha, row totals, hourly bars) consumed by `components/heatmap.tsx`.
+- **`hooks/use-projects-view.ts`** — list filter/selection state and
+  `deriveProjectList` / `deriveProjectDetail` (stats, per-day per-model stacked
+  cost from `ProjectRow.byDay[].models`, latest 15 sessions).
+- **`components/charts.tsx`** — Recharts wrappers (`Sparkline`, `TurnCostBars`,
+  `PlanValueChart`, `DailyStackedCost`, `EffortCostBars`, `ParetoCurve`,
+  `SessionScatter`, `ModelLegend`). Purely presentational: they map
+  already-derived rows onto Recharts and do no derivation: no aggregation,
+  ratios, sorting or insight strings (they only pass values through, call
+  format helpers such as `fmtUSDShort` for ticks, and take axis domains/ticks
+  from the hook). Model colours come from one
+  function, `modelColor()` in `lib/format.ts` (per model family), so a model has
+  the same colour in every chart and table. **UI/logic rule**: `.tsx` files hold
+  no arithmetic, sorting, filtering, ratio or insight-string building — that
+  lives in the exported `derive*` functions above (only trivial format calls
+  like `usdExact(x)` are allowed in JSX).
 - Pure calculation helpers that don't need React state live as non-exported
-  (or `export`ed for reuse in tests/other hooks) functions inside the
-  relevant hook file; they only move to `lib/` if genuinely shared across
-  hooks and lib code, never into a new `lib/` subdirectory.
+  (or `export`ed for tests) functions inside the relevant hook file.
+  **View hooks (`hooks/use-*-view.ts`) never import other view hooks**: a helper
+  or type two of them need moves to `lib/` (`lib/derive.ts`, `lib/stats.ts`,
+  `lib/format.ts`), never into a new `lib/` subdirectory.
+- **Idle days count as zero.** `byDay`/`byDayModel` only contain days with
+  usage, so anything time-based (7-day average, sparklines, the Projects day
+  chart) densifies with `fillDays(rows, span.from, span.to, make)` first, over
+  `daySpan(summary)`: bounded ranges run from the range start to the earlier of
+  the range end and today (`generatedAt`); "all" runs first to last active day.
 - **Dependency rule**: components import hooks + `lib` types/helpers + `ui`;
   hooks import `lib` (types, `effort`, `format`, `pricing` are fine) and
   React. Hooks and components **never** import runtime values from
@@ -204,6 +252,10 @@ breakdowns rather than post-processing `records` again elsewhere.
 
 The same pass also folds in the cross-cutting extras:
 
+- **Project day x model** — each `ProjectRow.byDay[]` entry carries a slim
+  `models: {model, cost}[]` (cost desc) so the Projects view can stack a
+  project's daily cost by model without token counts.
+
 - **Message position** (`turnBuckets`, `TURN_BUCKETS`) uses a per-conversation
   counter incremented for **every** record *before* the date/effort filters.
   `buildRecords` returns records globally ts-sorted, so the counter is a
@@ -216,10 +268,16 @@ The same pass also folds in the cross-cutting extras:
   part of the dedup key.
 - **Previous window** (`Summary.previous`) is the same number of whole *local
   calendar days* ending the instant before `from` (computed with `Date` parts,
-  so a DST change can't shift it by an hour). **`planMonth`** is the calendar
-  month containing `to` (effort-filtered, not range-filtered). Both need
-  records outside the range, so they are folded in the same loop ahead of the
-  range check. `previous` is `null` for unbounded (`"all"`) ranges.
+  so a DST change can't shift it by an hour). When the selected window ends in
+  the future (`to > now`, e.g. "This month") the previous window is trimmed to
+  the same elapsed length and `previous.partial` is `true`, so a partial period
+  is never compared with a complete one (KPI/subtitle copy says "same point in
+  previous period"). **`planMonth`** is always the CURRENT calendar month
+  (containing `now`, not `to`), **all efforts**, independent of both the range
+  and the effort filter — the plan card is "this month". Both need records
+  outside the range, so they are folded in the same loop ahead of the range
+  check. `previous` is `null` for unbounded (`"all"`) ranges. `summarize()`
+  takes `opts.now` (default `Date.now()`) so tests can pin "today".
   `summarize()` always receives every record — the route never pre-filters.
 - **`saved`, `cacheNetSaved` and `tokenCost`** come from real per-model rates
   (`lib/pricing.ts`, memoised; priced once per record) at summarize time, never
@@ -263,11 +321,11 @@ v4 syntax that silently does nothing.
 `npx tsc --noEmit && npm run lint && npm run build && npm test` must pass. `npm run lint`
 now runs `eslint .` against the flat config in `eslint.config.mjs` (ESLint 9;
 `eslint-config-next` for Next 16.3). `npm test` runs vitest
-(`lib/__tests__/*.test.ts`; `server-only` is aliased to an empty module in
+(`lib/__tests__/*.test.ts` and `hooks/__tests__/*.test.ts`; `server-only` is aliased to an empty module in
 `vitest.config.mts` so `summarize()` is importable in plain Node; TZ is pinned
 to America/New_York there because bucketing is local-time and the DST test
 needs a DST zone). Add a test
-when changing `summarize()` or `lib/stats.ts`. Manual/browser verification is
+when changing `summarize()`, `lib/stats.ts` or any exported `derive*` function. Manual/browser verification is
 not required for routine changes.
 
 Stack: Next.js 16.3.x + React 19.3.x, Node >=20.9 (see `engines` in
