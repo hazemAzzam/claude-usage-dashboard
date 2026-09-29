@@ -36,7 +36,7 @@ export function TopBar({
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
       <SidebarTrigger />
-      <Separator orientation="vertical" className="mx-1 data-[orientation=vertical]:h-4" />
+      <Separator orientation="vertical" className="mx-1 data-[orientation=vertical]:h-4 data-[orientation=vertical]:self-center" />
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
